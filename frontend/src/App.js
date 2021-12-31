@@ -1,5 +1,6 @@
 import React from 'react';
 import './App.css';
+import Login from './Login'
 
 class App extends React.Component {
   constructor(props) {
@@ -33,7 +34,7 @@ class App extends React.Component {
           });
         }
       )*/
-    fetch("http://localhost:3030/incr", {
+    /*fetch("http://localhost:3030/incr", {
         method: 'GET',
         mode: 'cors',
         headers: {
@@ -55,7 +56,7 @@ class App extends React.Component {
           error
         });
       }
-    )
+    )*/
   }
 
   render() {
@@ -66,7 +67,7 @@ class App extends React.Component {
       return <div>Loading...</div>;
     } else {
       return (
-        <p>{counter}</p>
+        <Login></Login>
       );
     }
   }
