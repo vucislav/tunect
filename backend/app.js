@@ -1,21 +1,30 @@
+require('dotenv').config()
 express = require("express")
 cors = require('cors')
 redis = require('redis')
 neo4j = require("neo4j-driver")
 cors = require('cors')
+env = process.env
 
 app = express()
 app.use(cors())
 
 async function setupRedis() {
-    client = redis.createClient(6379)
+    console.log(env['REDIS_HOSTNAME'])
+    console.log(env['REDIS_PORT'])
+    client = redis.createClient({
+        host: env['REDIS_HOSTNAME'],
+        port: env['REDIS_PORT'],
+        //password: env['REDIS_PASS']
+    });
     client.on('error', (err) => console.log('Redis Client Error', err));
     await client.connect();
-    await client.set('tmp', 0);
+    await client.set('tmp', 0)
 }
 setupRedis()
 
-driver = neo4j.driver("bolt://localhost:7687", neo4j.auth.basic("evel", "evel123"))
+host = "neo4j://" + env['NEO4J_HOSTNAME'] + ":" + env['NEO4J_PORT']
+driver = neo4j.driver(host, neo4j.auth.basic(env['NEO4J_USER'], env['NEO4J_PASS']))
 const session = driver.session()
 
 app.get("/incr", async (req, res) => {
@@ -25,14 +34,15 @@ app.get("/incr", async (req, res) => {
         console.log(value)
         res.status(200).send(value);
     } catch(err) {
-        console.log("radi5")
+        console.log("greska")
         res.status(500).send({message: err.message});
     }
 })
 
-app.get("/russel", (req, res) => {
+app.get("/shark", (req, res) => {
+    console.log("uso")
     session
-        .run("match (p:PLAYER) where p.name = \"Russell Westbrook\" return p")
+        .run("match (s:Shark) where s.name = \"Sammy\" return s")
         .then(function(result){
             list = []
             result.records.forEach(function(record){

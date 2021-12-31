@@ -8,21 +8,20 @@ class App extends React.Component {
       error: null,
       isLoaded: false,
       items: [],
-      tmp: 0
+      counter: 0
     };
   }
 
   componentDidMount() {
-    /*fetch("http://localhost:3030/russel", {
+    /*fetch("http://localhost:3030/shark", {
           method: 'GET',
           mode: 'cors',
       })
       .then(res => res.json())
       .then(
         (result) => {
-          console.log(result)
           this.setState({
-            isLoaded: true,
+            isLoaded: false,
             items: result
           });
         },
@@ -34,7 +33,7 @@ class App extends React.Component {
           });
         }
       )*/
-    /*fetch("http://localhost:3040/incr", {
+    fetch("http://localhost:3030/incr", {
         method: 'GET',
         mode: 'cors',
         headers: {
@@ -47,7 +46,7 @@ class App extends React.Component {
       (result) => {
         console.log(result)
         this.setState({
-          tmp: result
+          counter: result
         });
       },
       (error) => {
@@ -56,19 +55,18 @@ class App extends React.Component {
           error
         });
       }
-    )*/
+    )
   }
 
   render() {
-    //const { error, isLoaded, items } = this.state;
-    const { error, isLoaded, tmp } = this.state
+    const { error, isLoaded, counter } = this.state;
     if (error) {
       return <div>Error: {error.message}</div>;
     } else if (isLoaded) {
       return <div>Loading...</div>;
     } else {
       return (
-        <p>lazar car</p>
+        <p>{counter}</p>
       );
     }
   }
