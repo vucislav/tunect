@@ -1,54 +1,80 @@
-import React from "react";
-import Form from "react-bootstrap/Form";
-import Button from "react-bootstrap/Button";
-import "./Login.css";
+import React, { Component } from "react";
+import { useNavigate } from "react-router-dom";
 
-class Login extends React.Component {
+class Login extends Component {
     constructor(props) {
-        super(props);
-        this.state = {
-            email: null,
-            password: null,
-        };
-        this.validateForm = this.validateForm.bind(this);
-        this.handleSubmit = this.handleSubmit.bind(this);
+      super(props);
+      this.state = {
+          email: "",
+          password: "",
+          invalidLoginInput: ""
+      };
+      this.login = this.login.bind(this);
     }
 
-  validateForm() {
-    return email.length > 0 && password.length > 0;
-  }
+    login(e) {
+      e.preventDefault();
+      fetch("http://localhost:3030/login", {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: this.state.email,
+                password: this.state.password,
+            })
+        })
+        .then(res => res.json())
+        .then(
+            (result) => {
+                console.log(result)
+                if(result.status === 200)
+                    this.props.navigate('/home')
+                else if(result.status === 400)
+                    this.setState({invalidLoginInput: result.message})
+            },
+            (error) => {
+                console.log(error)
+            }
+        )
+    }
 
-  handleSubmit(event) {
-    event.preventDefault();
-  }
+    render() {
+        return (
+          <form>
+            <h3>Sign In</h3>
 
-  render(){
-    return (
-        <div className="Login">
-          <Form onSubmit={this.handleSubmit}>
-            <Form.Group size="lg" controlId="email">
-              <Form.Label>Email</Form.Label>
-              <Form.Control
-                autoFocus
-                type="email"
-                value={email}
-                //Change={(e) => setEmail(e.target.value)}
-              />
-            </Form.Group>
-            <Form.Group size="lg" controlId="password">
-              <Form.Label>Password</Form.Label>
-              <Form.Control
-                type="password"
-                value={password}
-                //onChange={(e) => setPassword(e.target.value)}
-              />
-            </Form.Group>
-            <Button block size="lg" type="submit" disabled={!validateForm()}>
-              Login
-            </Button>
-          </Form>
-        </div>
-      );
-  }
-  
+            <div className="form-group">
+                <label>Email address</label>
+                <input type="email" className="form-control" placeholder="Enter email" 
+                  onChange={(e) => this.setState({email: e.target.value})}/>
+            </div>
+
+            <div className="form-group">
+                <label>Password</label>
+                <input type="password" className="form-control" placeholder="Enter password"
+                  onChange={(e) => this.setState({password: e.target.value})} />
+            </div>
+
+            <div>
+                <p id = "invalidLoginInput" 
+                    style = {{display: this.state.invalidLoginInput === "" ? 'none' : 'block'}}>
+                        {this.state.invalidLoginInput}</p>
+            </div>
+
+            <button type="submit" className="btn btn-primary btn-block" onClick = {this.login}>Submit</button>
+            <p className="forgot-password text-right">
+                Forgot <a href="#">password?</a>
+            </p>
+          </form>
+        );
+    }
 }
+
+function WithNavigate(props) {
+  let navigate = useNavigate();
+  return <Login {...props} navigate={navigate} />
+}
+
+export default WithNavigate
