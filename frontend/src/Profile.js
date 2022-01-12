@@ -57,6 +57,7 @@ class Profile extends Component {
                 formData.append("userId", 54);//userId
                 await axios.post('http://localhost:3030/uploadSingle', formData, {
                     headers: {
+                        'Authorization': localStorage.getItem('token'),
                         'Content-type': 'multipart/form-data'
                     }
                 })
@@ -91,6 +92,7 @@ class Profile extends Component {
                     formData.append("songsInfo", JSON.stringify(songsInfoList));
                     await axios.post('http://localhost:3030/uploadAlbum/', formData, {
                         headers: {
+                            'Authorization': localStorage.getItem('token'),
                             'Content-type': 'multipart/form-data'
                         }
                     })
@@ -110,6 +112,7 @@ class Profile extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -120,8 +123,11 @@ class Profile extends Component {
                     this.setState({
                         user: result.data
                     })
-                    this.getPhoto("profile")
-                    this.getPhoto("cover")
+                    //this.getPhoto("profile")
+                    //this.getPhoto("cover")
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
                 } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -136,6 +142,7 @@ class Profile extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -146,6 +153,9 @@ class Profile extends Component {
                     this.setState({
                         albums: result.data
                     })
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
                 } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -160,6 +170,7 @@ class Profile extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -170,6 +181,9 @@ class Profile extends Component {
                     this.setState({
                         singles: prepareSongs(result.data)
                     })
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
                 } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -184,6 +198,7 @@ class Profile extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -194,6 +209,10 @@ class Profile extends Component {
                     this.setState({
                         playlists: result.data
                     })
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
                 else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -208,6 +227,7 @@ class Profile extends Component {
             method: 'POST',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -221,6 +241,10 @@ class Profile extends Component {
                 console.log(result)
                 if(result.status == 200)
                     console.log("sve kul")
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
                 else if(result.status == 400)
                     console.log(result.message)
             },
@@ -235,11 +259,13 @@ class Profile extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
         .then(response => response.blob())
         .then(blob => {
+            // TODO: da li hocemo da proverimo status code?
             if(type == "cover")
                 this.setState({
                     coverPhotoSrc: URL.createObjectURL(blob)
@@ -261,6 +287,7 @@ class Profile extends Component {
         formData.append("type", type);
         axios.post('http://localhost:3030/uploadPhoto', formData, {
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-type': 'multipart/form-data'
             }
         })

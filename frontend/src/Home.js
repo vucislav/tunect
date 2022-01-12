@@ -1,9 +1,10 @@
 import { Component } from "react";
+import { useNavigate } from "react-router-dom";
 import './Home.css';
 import Songs from './Songs'
 import { prepareSongs } from "./Utility";
 
-export default class Home extends Component {
+class Home extends Component {
     constructor(props) {
         super(props);
         this.state = {
@@ -22,6 +23,7 @@ export default class Home extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -35,7 +37,10 @@ export default class Home extends Component {
                         albums: result.data.albums
                     })
                 }
-                else if(result.status == 400)
+                else if(result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
             (error) => {
@@ -57,3 +62,10 @@ export default class Home extends Component {
         )
     }
 }
+
+function WithNavigate(props) {
+    let navigate = useNavigate();
+    return <Home {...props} navigate={navigate} />
+  }
+  
+  export default WithNavigate

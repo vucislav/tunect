@@ -1,5 +1,5 @@
 import React, { Component } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 
 class Login extends Component {
     constructor(props) {
@@ -10,6 +10,7 @@ class Login extends Component {
           invalidLoginInput: ""
       };
       this.login = this.login.bind(this);
+      
     }
 
     login(e) {
@@ -29,9 +30,11 @@ class Login extends Component {
         .then(
             (result) => {
                 console.log(result)
-                if(result.status === 200)
+                if(result.status === 200) {
+                    localStorage.setItem('token', result.data.token)
+                    localStorage.setItem('username', result.data.username)
                     this.props.navigate('/home')
-                else if(result.status === 400)
+                } else if(result.status === 400)
                     this.setState({invalidLoginInput: result.message})
             },
             (error) => {
@@ -41,6 +44,13 @@ class Login extends Component {
     }
 
     render() {
+        
+        if (localStorage.getItem('token')) {
+            return (
+                <Navigate to='/home' />
+            )
+        }
+
         return (
           <form>
             <h3>Sign In</h3>

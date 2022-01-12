@@ -24,6 +24,7 @@ class Playlists extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -33,7 +34,11 @@ class Playlists extends Component {
                 if(result.status == 200)
                     this.setState({
                         myPlaylists: result.data
-                    })
+                    }) 
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
                 else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -48,6 +53,7 @@ class Playlists extends Component {
             method: 'POST',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -63,6 +69,10 @@ class Playlists extends Component {
                     this.setState(prevState => ({
                         myPlaylists: [result.data, ...prevState.myPlaylists]
                     }))
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
                 else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
@@ -76,6 +86,7 @@ class Playlists extends Component {
             method: 'DELETE',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -87,6 +98,10 @@ class Playlists extends Component {
                     this.setState(prevState => ({
                         myPlaylists: prevState.myPlaylists.filter(e => e.id != playlistId)
                     }))
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
                 else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },

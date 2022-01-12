@@ -28,6 +28,7 @@ class Playlist extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -40,8 +41,10 @@ class Playlist extends Component {
                         songs: prepareSongs(result.data.songs),
                         playlist: result.data.playlist
                     })
-                }
-                else if(result.status == 400)
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
             (error) => {
@@ -55,6 +58,7 @@ class Playlist extends Component {
             method: 'DELETE',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             },
         })
@@ -66,8 +70,10 @@ class Playlist extends Component {
                     this.setState((prevState) =>({
                         songs: prevState.songs.filter(e => e.id != songId)
                     }))
-                } 
-                else if(result.status == 400)
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } else if(result.status == 400)
                     this.setState({invalidRegInput: result.message})
             },
             (error) => {

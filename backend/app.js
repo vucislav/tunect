@@ -6,6 +6,8 @@ neo4j = require("neo4j-driver")
 cors = require('cors')
 var fs = require('fs');
 const fileUpload = require('express-fileupload')
+const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 var redisClient = {}
 //var redisClient2 = {}
 const env = process.env
@@ -15,21 +17,25 @@ app.use(cors())
 app.use(express.json())
 app.use(fileUpload())
 
-const server = require('http').createServer(app)
 const WebSocket = require('ws')
 const wss = new WebSocket.Server({port: 3080})
 webSockets = {}
 
-wss.on('connection', function connection(ws, mess) {
-    console.log(mess)
-    /*var userID = parseInt(ws.upgradeReq.url.substr(1), 10)
-    console.log(ws.upgradeReq.url)
-    webSockets[userID] = ws*/
-    ws.send('brao povezao si se')
+host = "neo4j://" + env['NEO4J_HOSTNAME'] + ":" + env['NEO4J_PORT']
+const driver = neo4j.driver(host, neo4j.auth.basic(env['NEO4J_USER'], env['NEO4J_PASS']))
 
-    ws.on('message', function message(data) {
-      console.log('received: %s', data);
-      ws.send("primio")
+wss.on('connection', function connection(ws, req) {
+    let url = req.url
+    let token = url.substring(req.url.indexOf('=') + 1, url.length)
+    var decoded = jwt.verify(token, env.JWT_SECRET)
+    let user_id = decoded.user_id
+    ws.send(user_id)
+    let n = 0
+    if(webSockets[user_id] !== undefined) n = webSockets[user_id].n + 1
+    webSockets[user_id] = { ws: ws, n: n}
+    ws.on('close',function(){
+        console.log("closing ", connection);
+        delete webSockets[user_id]
     });
 });
 
@@ -48,25 +54,18 @@ async function setupRedis() {
 setupRedis()
 
 const subscriber = redisClient.duplicate();
-const publisher = redisClient.duplicate();
 
-async function setupPubSub(){
-    await publisher.connect();
+async function setupSubscriber(){
     await subscriber.connect();
-    await subscriber.subscribe('kanal', (message) => {
+    await subscriber.subscribe('notifications', (message) => {
         console.log(message);
-        //ws.send()
+        let publisherId = message.substring(0, req.url.indexOf(':'))
+        let text =  message.substring(req.url.indexOf(':') + 1, message.length)
+        const session = driver.session()
+        session.close()
     });
 }
-setupPubSub()
-
-app.post("/publish", async (req, res) => {
-    await publisher.publish('kanal', 'message');
-    res.status(200).json({status: 200, message: "OK"})
-})
-
-host = "neo4j://" + env['NEO4J_HOSTNAME'] + ":" + env['NEO4J_PORT']
-driver = neo4j.driver(host, neo4j.auth.basic(env['NEO4J_USER'], env['NEO4J_PASS']))
+setupSubscriber()
 
 /* strutkura jednog node-a (ovako result.records[0]._fields dolazis do nje)
 Node {
@@ -83,12 +82,13 @@ app.post("/register", (req, res) => {
                 res.status(400).json({status: 400, message: "User with this email or with this username already exists."})
                 session.close()
             } else {
+                password = bcrypt.hashSync(req.body.password, 10)
                 data = [{key: "username", value: req.body.username, type: "string"},
                         {key: "firstName", value: req.body.firstName, type: "string"},
                         {key: "lastName", value: req.body.lastName, type: "string"},
                         {key: "stageName", value: req.body.stageName, type: "string"},
                         {key: "email", value: req.body.email, type: "string"},
-                        {key: "password", value: req.body.password, type: "string"}]
+                        {key: "password", value: password, type: "string"}]
                 session.run(buildCreateQuery(["User"], data))
                     .then(function(result){
                         res.status(200).json({status: 200, message: "OK"})
@@ -108,12 +108,19 @@ app.post("/register", (req, res) => {
 
 app.post("/login", (req, res) => {
     const session = driver.session()
-    session.run("match (u:User) where u.email = '" + req.body.email + "' and u.password = '" + req.body.password + "' return id(u)")
+    session.run("match (u:User) where u.email = '" + req.body.email + "' return u, id(u)")
             .then(function(result){
                 if(result.records.length == 0){
-                    res.status(400).json({status: 400, message: "Incorrect email or password."})
+                    res.status(400).json({status: 400, message: "Incorrect email."})
                 } else {
-                    res.status(200).json({status: 200, message: "OK"})
+                    user = result.records[0]._fields[0].properties
+                    user_id = result.records[0]._fields[1].low
+                    if (bcrypt.compareSync(req.body.password, user.password)) {
+                        token = jwt.sign({user_id: user_id}, env.JWT_SECRET)
+                        res.status(200).json({status: 200, data: { token: token, username: user.username}})
+                    } else {
+                        res.status(401).json({message: "Wrong password."})
+                    }
                 }
                 session.close()
             }).catch((error) => {
@@ -123,19 +130,34 @@ app.post("/login", (req, res) => {
             });
 })
 
+app.use((req, res, next) => {
+    token = req.header('Authorization')
+    try {
+        var decoded = jwt.verify(token, env.JWT_SECRET)
+        req.user_id = decoded.user_id
+        next()
+    } catch(e) {
+        res.status(401).json({status: 401})
+    }
+})
+
 app.post("/uploadSingle", (req, res) => {
     const session = driver.session()
+    let userId = req.user_id
     let singleFile = req.files.single
     let fileName = singleFile.name
     let title = fileName.substring(0, fileName.lastIndexOf("."));
     let extension = fileName.substring(fileName.lastIndexOf("."), fileName.length);
-    session.run("MATCH (u:User) WHERE id(u) = " + req.body.userId + " create (u)-[:Published]->(song:Song {title: \"" 
+    console.log("uso")
+    session.run("MATCH (u:User) WHERE id(u) = " + userId + " create (u)-[:Published]->(song:Song {title: \"" 
                 + title + "\", duration: " + req.body.duration + 
-                ", extension: '" + extension + "'}) RETURN id(song)")
-            .then(function(result){
+                ", extension: '" + extension + "'}) RETURN id(song), u.stageName as stageName")
+            .then(async function(result){
                 res.status(200).json({status: 200, message: "OK"})
                 let path = `${__dirname}/singles/${result.records[0]._fields[0].low + extension}`
+                let stageName = result.records[0]._fields[1]
                 singleFile.mv(path)
+                await redisClient.publish('notifications', userId + ":" + stageName + " has published new song: " + title);
                 session.close()
             }).catch((error) => {
                 console.error(error);

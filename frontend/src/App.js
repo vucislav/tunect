@@ -10,6 +10,9 @@ import Playlist from './Playlist'
 import Album from './Album'
 import Leaderboard from './Leaderboard';
 import { Routes, Route, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+const wsClient = new WebSocket('ws://localhost:3080/?token=' + localStorage.getItem('token')); //TODO: id ulogovanog
 
 class App extends React.Component {
 
@@ -20,7 +23,21 @@ class App extends React.Component {
       isLoaded: false,
       items: [],
     };
-    console.log("sam pocetak")
+    this.notificationConnection = this.notificationConnection.bind(this)
+  }
+
+  componentDidMount() {
+    wsClient.addEventListener('open', function (event) {
+      wsClient.send('Hello Server!');
+    });
+
+    wsClient.addEventListener('message', function (event) {
+        console.log('Message from server ', event.data);
+    });
+  }
+
+  notificationConnection(){
+
   }
 
   render() {
@@ -30,26 +47,42 @@ class App extends React.Component {
           <div className="container">
             <Link className="navbar-brand" to={"/login"}>eVeL</Link>
             <div className="collapse navbar-collapse" id="navbarTogglerDemo02">
-              <ul className="navbar-nav ml-auto">
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/home"}>Home</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/login"}>Login</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/register"}>Register</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/profile"}>Profile</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/playlists"}>My playlists</Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to={"/leaderboard"}>Leaderboard</Link>
-                </li>
-              </ul>
+                {
+                localStorage.getItem('token') ? 
+                
+                <ul className="navbar-nav ml-auto">
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/home"}>Home</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/profile/" + localStorage.getItem('username')}>Profile</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/playlists"}>My playlists</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/leaderboard"}>Leaderboard</Link>
+                  </li>
+                  <li className="nav-item">
+                    <a href="" className="nav-link" onClick={
+                      (e) => {
+                        e.preventDefault()
+                        localStorage.removeItem('token')
+                        this.props.navigate('/login')
+                      }
+                    }>Log out</a>
+                  </li>
+                </ul>
+                :
+                <ul className="navbar-nav ml-auto">
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/login"}>Login</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/register"}>Register</Link>
+                  </li> 
+                </ul>
+                }
             </div>
           </div>
         </nav>
@@ -89,4 +122,9 @@ class App extends React.Component {
   }
 }
 
-export default App;
+function WithNavigate(props) {
+  let navigate = useNavigate();
+  return <App {...props} navigate={navigate} />
+}
+
+export default WithNavigate

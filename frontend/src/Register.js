@@ -1,6 +1,6 @@
 import { Component } from "react";
 import './Register.css';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 
 class Register extends Component {
     constructor(props) {
@@ -20,7 +20,7 @@ class Register extends Component {
     register(e) {
         e.preventDefault()
         if(this.state.username === "" || this.state.email === "" || this.state.password === "") { 
-            this.setState({invalidRegInput: 'Mora uneses polja sa *'}); 
+            this.setState({invalidRegInput: 'You need to fill all fields marked with *'}); 
             return
         }
         fetch("http://localhost:3030/register", {
@@ -54,6 +54,13 @@ class Register extends Component {
     }
 
     render() {
+        
+        if (localStorage.getItem('token')) {
+            return (
+                <Navigate to='/home' />
+            )
+        }
+        
         return (
             <form>
                 <h3>Register</h3>

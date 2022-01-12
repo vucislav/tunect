@@ -14,23 +14,10 @@ export default class Leaderboard extends Component {
             socket: null
         };
         this.fetchSongs = this.fetchSongs.bind(this)
-        this.publish = this.publish.bind(this)
-        this.state.socket = new WebSocket('ws://localhost:3080/?id=' + 46); //TODO: id ulogovanog
     }
 
     componentDidMount(){
         this.fetchSongs()
-        
-        let socket = this.state.socket
-        // Connection opened
-        this.state.socket.addEventListener('open', function (event) {
-            socket.send('Hello Server!');
-        });
-
-        // Listen for messages
-        this.state.socket.addEventListener('message', function (event) {
-            console.log('Message from server ', event.data);
-        });
     }
 
     fetchSongs(){
@@ -40,6 +27,7 @@ export default class Leaderboard extends Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -51,28 +39,10 @@ export default class Leaderboard extends Component {
                     this.setState({
                         songs: prepareSongs(result.data.songs)
                     })
+                } else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
                 }
-            },
-            (error) => {
-                console.log(error)
-            }
-        )
-    }
-
-    publish(){
-        this.state.socket.send("porukica")
-        return
-        fetch("http://localhost:3030/publish/", { //TODO: id ulogovanog
-            method: 'POST',
-            mode: 'cors',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(
-            (result) => {
-                console.log(result.data); 
             },
             (error) => {
                 console.log(error)

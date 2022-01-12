@@ -31,6 +31,7 @@ export default class Songs extends React.Component {
                 method: 'GET',
                 mode: 'cors',
                 headers: {
+                    'Authorization': localStorage.getItem('token'),
                     'Content-Type': 'application/json'
                 }
             })
@@ -41,8 +42,10 @@ export default class Songs extends React.Component {
                         this.setState({
                             loggedInUserPlaylists: result.data
                         })
-                    }
-                    else if(result.status == 400)
+                    } else if (result.status == 401) {
+                        localStorage.removeItem('token')
+                        this.props.navigate('/login')
+                    } else if(result.status == 400)
                         this.setState({invalidRegInput: result.message})
                 },
                 (error) => {
@@ -62,6 +65,7 @@ export default class Songs extends React.Component {
             method: 'POST',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -94,6 +98,7 @@ export default class Songs extends React.Component {
                 method: 'POST',
                 mode: 'cors',
                 headers: {
+                    'Authorization': localStorage.getItem('token'),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -108,6 +113,10 @@ export default class Songs extends React.Component {
                     console.log(result)
                     if(result.status == 400)
                         console.log(result.message)
+                    else if (result.status == 401) {
+                        localStorage.removeItem('token')
+                        this.props.navigate('/login')
+                    } 
                 },
                 (error) => {
                     console.log(error)
@@ -123,6 +132,7 @@ export default class Songs extends React.Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -132,8 +142,12 @@ export default class Songs extends React.Component {
                 console.log(result.data)
                 if(result.status == 200)
                     this.setState({showRateModal: true, currSongRating: result.data, currSongId: songId})
-                if(result.status == 400)
-                    console.log(result.message)
+                else if(result.status == 400)
+                    console.log(result.message) 
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
             },
             (error) => {
                 console.log(error)
@@ -147,6 +161,7 @@ export default class Songs extends React.Component {
             method: 'GET',
             mode: 'cors',
             headers: {
+                'Authorization': localStorage.getItem('token'),
                 'Content-Type': 'application/json'
             }
         })
@@ -155,8 +170,12 @@ export default class Songs extends React.Component {
             (result) => {
                 if(result.status == 200)
                     this.setState({showPlaylistModal: true, currSongId: songId, playlistIds: result.data})
-                if(result.status == 400)
-                    console.log(result.message)
+                else if(result.status == 400)
+                    console.log(result.message) 
+                else if (result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } 
             },
             (error) => {
                 console.log(error)
@@ -172,6 +191,7 @@ export default class Songs extends React.Component {
                 method: 'POST',
                 mode: 'cors',
                 headers: {
+                    'Authorization': localStorage.getItem('token'),
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -183,6 +203,10 @@ export default class Songs extends React.Component {
                 (result) => {
                     if(result.status == 200)
                         console.log(result)
+                    else if (result.status == 401) {
+                        localStorage.removeItem('token')
+                        this.props.navigate('/login')
+                    } 
                 },
                 (error) => {
                     console.log(error)
