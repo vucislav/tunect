@@ -1,11 +1,11 @@
 import React from 'react';
 import './Songs.css'
 import { RateIcon, PlaylistIcon } from "./Utility";
-
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
+import { useNavigate } from "react-router-dom";
 
-export default class Songs extends React.Component {
+class Songs extends React.Component {
 
     constructor(props) {
         super(props);
@@ -219,51 +219,51 @@ export default class Songs extends React.Component {
         return(
         <div className="row">
              <Modal show={this.state.showRateModal} onHide={() => this.setState({showRateModal: false})}>
-                    <Modal.Header closeButton>
-                        <Modal.Title>Rate</Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                        {
-                            this.state.ratingList.map((p, i) =>
-                                <div key={i}>
-                                    <input className = "rateRadioButton" defaultChecked = {this.state.currSongRating == p ? true : false} type="radio" name="rate" value={p}/>
-                                    <label>{p}</label>
-                                </div>
-                            )
-                        }
-                    </Modal.Body>
-                    <Modal.Footer>
+                <Modal.Header closeButton>
+                    <Modal.Title>Rate</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {
+                        this.state.ratingList.map((p, i) =>
+                            <div key={i}>
+                                <input className = "rateRadioButton" defaultChecked = {this.state.currSongRating == p ? true : false} type="radio" name="rate" value={p}/>
+                                <label>{p}</label>
+                            </div>
+                        )
+                    }
+                </Modal.Body>
+                <Modal.Footer>
                     <Button variant="primary" onClick={this.rateSong}>
                         Save Changes
                     </Button>
-                    </Modal.Footer>
-                </Modal>
-                <Modal show={this.state.showPlaylistModal} onHide={() => this.setState({showPlaylistModal: false})}>
-                    <Modal.Header closeButton>
+                </Modal.Footer>
+            </Modal>
+            <Modal show={this.state.showPlaylistModal} onHide={() => this.setState({showPlaylistModal: false})}>
+                <Modal.Header closeButton>
                     <Modal.Title>Add to playlist</Modal.Title>
-                    </Modal.Header>
-                        <Modal.Body>
-                        {
-                            this.state.loggedInUserPlaylists.map((p, i) =>
-                                <div key={i}>
-                                    <input className = "playlistCheckbox" 
-                                        defaultChecked = {this.state.playlistIds.includes(p.id)}
-                                        type="checkbox" name="playlistCB" value={p.id}/>
-                                    <label>{p.name}</label>
-                                </div>
-                            )
-                        }
-                        </Modal.Body>
-                    <Modal.Footer>
+                </Modal.Header>
+                    <Modal.Body>
+                    {
+                        this.state.loggedInUserPlaylists.map((p, i) =>
+                            <div key={i}>
+                                <input className = "playlistCheckbox" 
+                                    defaultChecked = {this.state.playlistIds.includes(p.id)}
+                                    type="checkbox" name="playlistCB" value={p.id}/>
+                                <label>{p.name}</label>
+                            </div>
+                        )
+                    }
+                    </Modal.Body>
+                <Modal.Footer>
                     <Button variant="primary" onClick={this.addToPlaylist}>
                         Save Changes
                     </Button>
-                    </Modal.Footer>
-                </Modal>
+                </Modal.Footer>
+            </Modal>
             <div className="col-sm-12">
                 <div className="list list-row block">
                     {this.props.songs.map((song, i) => 
-                        { 
+                        {
                             let minutes =  Math.floor(song.duration / 60)
                             let seconds = Math.floor(song.duration) - minutes * 60
                             if(seconds < 10) seconds = "0" + seconds
@@ -274,7 +274,9 @@ export default class Songs extends React.Component {
                                         <div className="item-date text-muted text-sm d-none d-md-block">{ (i + 1) + "." }</div>
                                     </div> : null}
                                     <div><a href="#" data-abc="true"><span className="w-48 avatar gd-warning">S</span></a></div>
-                                    <div className="flex"> <a href="#" className="item-author text-color" data-abc="true">{ song.title }</a>
+                                    <div className="flex"> 
+                                        <a href="#" className="item-author text-color" data-abc="true"
+                                            onClick={(e) => this.props.navigate('/song/' + song.id)}>{ song.title }</a>
                                         <div className="item-except text-muted text-sm h-1x"> { song.artist }</div>
                                     </div>
                                     <div className="no-wrap">
@@ -311,3 +313,10 @@ export default class Songs extends React.Component {
         )
     }
 }
+
+function WithNavigate(props) {
+    let navigate = useNavigate();
+    return <Songs {...props} navigate={navigate}/>
+}
+  
+export default WithNavigate

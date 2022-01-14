@@ -11,8 +11,10 @@ import Album from './Album'
 import Leaderboard from './Leaderboard';
 import { Routes, Route, Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import { CancelIcon } from './Utility';
+import Song from './Song'
 
-const wsClient = new WebSocket('ws://localhost:3080/?token=' + localStorage.getItem('token')); //TODO: id ulogovanog
+var wsClient = {}
 
 class App extends React.Component {
 
@@ -22,22 +24,48 @@ class App extends React.Component {
       error: null,
       isLoaded: false,
       items: [],
+      notifList: [],
     };
-    this.notificationConnection = this.notificationConnection.bind(this)
+    this.setupNotifications = this.setupNotifications.bind(this)
+    this.removeNotif = this.removeNotif.bind(this)
+    this.parseMessage = this.parseMessage.bind(this)
+    this.setupNotifications()
   }
 
-  componentDidMount() {
-    wsClient.addEventListener('open', function (event) {
-      wsClient.send('Hello Server!');
-    });
+  parseMessage(message){
+    let publisherId = "", type = "", id = "", text = ""
+    let array = message.split(":")
+    publisherId = array[0]
+    type = array[1]
+    id = array[2]
+    array.forEach((e, i) => {
+        if(i > 2) text += e
+    })
+    return { publisherId, type, id, text }
+}
 
-    wsClient.addEventListener('message', function (event) {
-        console.log('Message from server ', event.data);
-    });
+  setupNotifications(){
+    if(localStorage.getItem('token') != null){
+      wsClient = new WebSocket('ws://localhost:3080/?token=' + localStorage.getItem('token'));
+      wsClient.addEventListener('open', function (event) {
+        wsClient.send('Hello Server!');
+      });
+      let app = this
+      wsClient.addEventListener('message', function (event) {
+          console.log('Message from server ', event.data);
+          let { publisherId, type, id, text } = app.parseMessage(event.data)
+          let newNotif = {publisherId: publisherId, text:text, id: id, type: type}
+          app.setState(prevState => ({
+            notifList: [...prevState.notifList, newNotif]
+          }))
+      });
+    }
   }
 
-  notificationConnection(){
-
+  removeNotif(e, index){
+    e.preventDefault()
+    this.state.notifList.splice(index, 1)
+    this.forceUpdate()
   }
 
   render() {
@@ -86,6 +114,25 @@ class App extends React.Component {
             </div>
           </div>
         </nav>
+        {this.state.notifList.map((notif, i) => {
+          return (
+            <div className="card" key = {i}>
+              <div className="card-body notifCard">
+                <a className="notifBtnCancel" href="" onClick={(e) => this.removeNotif(e, i)}><CancelIcon /></a>
+                <h5 className="card-title">Notification</h5>
+                <p className="card-text">{notif.text}</p>
+                <a href="#" className="btn btn-primary" onClick={(e) => { 
+                  this.removeNotif(e, i)
+                  if(notif.type === "single")
+                    this.props.navigate('/song/' + notif.id)
+                  else if(notif.type === "album")
+                    this.props.navigate('/album/' + notif.id)
+                }} >Check it out</a>
+              </div>
+            </div>
+          )
+        }
+        )}
         
         <Routes>
           <Route exact path='/' element={
@@ -109,13 +156,13 @@ class App extends React.Component {
               </div>
             </div>
           } />
-          <Route path="/home" element={<Home/>} />
+          <Route path="/home" element={<Home setupNotifications={this.setupNotifications} areNotifSet = {wsClient.url !== undefined}/>} />
           <Route path="/profile/:username" element={<Profile/>} />
-          <Route path="/home" element={<Home/>} />
           <Route path="/playlists" element={<Playlists/>} />
           <Route path="/playlist/:playlistId" element={<Playlist/>} />
           <Route path="/album/:albumId" element={<Album/>} />
           <Route path="/leaderboard" element={<Leaderboard/>} />
+          <Route path="/song/:songId" element={<Song/>} />
         </Routes>
       </div>
     );

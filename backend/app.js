@@ -9,8 +9,8 @@ const fileUpload = require('express-fileupload')
 const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 var redisClient = {}
-//var redisClient2 = {}
 const env = process.env
+var comments = require('./comments.js');
 
 app = express()
 app.use(cors())
@@ -19,7 +19,7 @@ app.use(fileUpload())
 
 const WebSocket = require('ws')
 const wss = new WebSocket.Server({port: 3080})
-webSockets = {}
+webSockets = []
 
 host = "neo4j://" + env['NEO4J_HOSTNAME'] + ":" + env['NEO4J_PORT']
 const driver = neo4j.driver(host, neo4j.auth.basic(env['NEO4J_USER'], env['NEO4J_PASS']))
@@ -29,16 +29,24 @@ wss.on('connection', function connection(ws, req) {
     let token = url.substring(req.url.indexOf('=') + 1, url.length)
     var decoded = jwt.verify(token, env.JWT_SECRET)
     let user_id = decoded.user_id
-    ws.send(user_id)
-    let n = 0
-    if(webSockets[user_id] !== undefined) n = webSockets[user_id].n + 1
-    webSockets[user_id] = { ws: ws, n: n}
-    ws.on('close',function(){
+    let maks = -1
+    webSockets.forEach((e) => {
+        if(e.userId === user_id && e.n > maks) maks = e.n
+    })
+    maks++
+    webSockets.push({ ws: ws, n: maks, userId: user_id})
+    ws.on('close', function(){
         console.log("closing ", connection);
-        delete webSockets[user_id]
+        let removeAt = 0
+        webSockets.forEach((e, i) => {
+            if(e.userId === user_id && e.n === maks){ 
+                removeAt = i
+                return
+            }
+        })
+        webSockets.splice(removeAt, 1);
     });
 });
-
 
 async function setupRedis() {
     url = 'redis://:' + env['REDIS_PASS'] + '@' + env['REDIS_HOSTNAME'] + ':' + env['REDIS_PORT'];
@@ -58,14 +66,40 @@ const subscriber = redisClient.duplicate();
 async function setupSubscriber(){
     await subscriber.connect();
     await subscriber.subscribe('notifications', (message) => {
-        console.log(message);
-        let publisherId = message.substring(0, req.url.indexOf(':'))
-        let text =  message.substring(req.url.indexOf(':') + 1, message.length)
+        let { publisherId } = parseMessage(message)
         const session = driver.session()
-        session.close()
+        session.run("match (u1:User)-[:Follows]->(u2:User) where id(u2) = " + publisherId + " return id(u1) as subscriberId" )
+        .then(function(result){
+            if(result.records.length !== 0){
+                let subscriberIndex = result.records[0]._fieldLookup["subscriberId"]
+                result.records.forEach((e) => {
+                    let id =  e._fields[subscriberIndex].low
+                    webSockets.forEach((e) => {
+                        if(e.userId === id) e.ws.send(message)
+                    })
+                })
+            }
+            session.close()
+        }).catch((error) => {
+            console.error(error);
+            res.status(500).json({status: 500, message: "Internal server error"})
+            session.close()
+        });
     });
 }
 setupSubscriber()
+
+function parseMessage(message){
+    let publisherId = "", type = "", id = "", text = ""
+    let array = message.split(":")
+    publisherId = array[0]
+    type = array[1]
+    id = array[2]
+    array.forEach((e, i) => {
+        if(i > 2) text += e
+    })
+    return {publisherId, type, id, text}
+}
 
 /* strutkura jednog node-a (ovako result.records[0]._fields dolazis do nje)
 Node {
@@ -74,6 +108,7 @@ Node {
     properties: { password: '123', email: 'lazarminic028@gmail.com' }
   }
 */
+
 app.post("/register", (req, res) => {
     const session = driver.session()
     session.run("match (u:User) where u.username = '" + req.body.username + "' or u.email = '" + req.body.email + "' return id(u)")
@@ -141,6 +176,8 @@ app.use((req, res, next) => {
     }
 })
 
+comments(app, driver, redisClient)
+
 app.post("/uploadSingle", (req, res) => {
     const session = driver.session()
     let userId = req.user_id
@@ -148,16 +185,16 @@ app.post("/uploadSingle", (req, res) => {
     let fileName = singleFile.name
     let title = fileName.substring(0, fileName.lastIndexOf("."));
     let extension = fileName.substring(fileName.lastIndexOf("."), fileName.length);
-    console.log("uso")
     session.run("MATCH (u:User) WHERE id(u) = " + userId + " create (u)-[:Published]->(song:Song {title: \"" 
                 + title + "\", duration: " + req.body.duration + 
                 ", extension: '" + extension + "'}) RETURN id(song), u.stageName as stageName")
             .then(async function(result){
                 res.status(200).json({status: 200, message: "OK"})
-                let path = `${__dirname}/singles/${result.records[0]._fields[0].low + extension}`
+                let songId = result.records[0]._fields[0].low
+                let path = `${__dirname}/singles/${songId + extension}`
                 let stageName = result.records[0]._fields[1]
                 singleFile.mv(path)
-                await redisClient.publish('notifications', userId + ":" + stageName + " has published new song: " + title);
+                await redisClient.publish('notifications', userId + ":single:" + songId + ":" + (stageName + " has published a new single: " + title));
                 session.close()
             }).catch((error) => {
                 console.error(error);
@@ -172,6 +209,7 @@ app.post("/uploadAlbum", (req, res) => {
     let songCount = req.body.numOfSongs
     let songsInfo = JSON.parse(req.body.songsInfo)
     let songFiles = req.files
+    let userId = req.user_id
     let titles = []
     let extensions = []
     for(let i = 0; i < songCount; i++){
@@ -179,10 +217,11 @@ app.post("/uploadAlbum", (req, res) => {
         titles.push(fullTitle.substring(0, fullTitle.lastIndexOf(".")))
         extensions.push(fullTitle.substring(fullTitle.lastIndexOf("."), fullTitle.length))
     }
-    session.run("match (u:User) where id(u) = " + req.body.userId + " create (u)-[:Published]->(album:Album {title: \"" +
-                albumName + "\", songCount: " + songCount + " }) return id(album)")
+    session.run("match (u:User) where id(u) = " + userId + " create (u)-[:Published]->(album:Album {title: \"" +
+                albumName + "\", songCount: " + songCount + " }) return id(album), u.stageName as stageName")
     .then(function(result){
         let albumId = result.records[0]._fields[0].low
+        let stageName = result.records[0]._fields[1]
         let returnPart = " return "
         let query = "match (album:Album) where id(album) = " + albumId + " create "
         songsInfo.forEach((e, i) => {
@@ -197,13 +236,14 @@ app.post("/uploadAlbum", (req, res) => {
         })
         query += returnPart
         session.run(query)
-            .then(function(result){
+            .then(async function(result){
                 let songs = result.records[0]._fields
                 fs.mkdirSync("./albums/" + albumId)
                 songs.forEach((e, i) => {
                     let path = `${__dirname}/albums/${albumId + "/"}${e.low + extensions[i]}`
                     songFiles["song" + i].mv(path)
                 })
+                await redisClient.publish('notifications', userId + ":album:" + albumId + ":" + (stageName + " has published a new album: " + albumName));
                 res.status(200).json({status: 200, message: "OK"})
                 session.close()
             }).catch((error) => {
@@ -250,7 +290,7 @@ app.get("/user/:username", (req, res) => {
 
 app.post("/follow", (req, res) => {
     const session = driver.session()
-    let followerId =  req.body.followerId
+    let followerId =  req.user_id
     let followingId = req.body.followingId
     session.run("match (u1:User)-[:Follows]->(u2:User) where id(u1) = " + followerId + " and id(u2) = " + followingId + 
                 " return u1, u2")
@@ -279,7 +319,6 @@ app.post("/follow", (req, res) => {
                 res.status(500).json({status: 500, message: "Internal server error"})
                 session.close()
             });
-   
 })
 
 app.get("/user/:username/albums", (req, res) => {
@@ -654,6 +693,33 @@ app.get("/album/:albumId", (req, res) => {
         });
 })
 
+app.get("/song/:songId", async (req, res) => {
+    const session = driver.session()
+    let songId = req.params.songId
+    let song = await getSongs("match (u:User)-[:Published]->(s:Song) where ID(s) = " + songId)
+    if(song.length === 0){
+        session.run("match (u:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) where id(s) = " + songId 
+                    + " return id(a) as albumId")
+                    .then(async function(result){
+                        if(result.records.length === 0){
+                            res.status(404).json({status: 404, message: "Song not found."})
+                        } else {
+                            let albumId = result.records[0]._fields[0].low
+                            let song = await getSongs("match (u:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) where ID(s) = " + songId, albumId)
+                            song[0].albumdId = albumId
+                            res.status(200).json({status: 200, message: "OK", data: song[0]})
+                        }
+                        session.close()
+                    }).catch((error) => {
+                        console.error(error);
+                        res.status(500).json({status: 500, message: "Internal server error"})
+                        session.close()
+                    });
+    } else {
+        res.status(200).json({status: 200, message: "OK", data: song[0]})
+    }
+})
+
 app.get("/recommended/:userId", async (req, res) => {
     const session = driver.session()
     let userId = req.params.userId
@@ -711,7 +777,6 @@ app.get("/recommended/:userId", async (req, res) => {
 app.post("/listen", (req, res) => {
     const session = driver.session()
     let songId = req.body.songId
-    console.log("uso")
     redisClient.sendCommand(['ZINCRBY',"listenings:" + getCurrDate("dmy"), "1", songId.toString()]);
     redisClient.sendCommand(['ZINCRBY', "listenings:" + getCurrDate("my"), "1", songId.toString() ]);
     redisClient.sendCommand(['ZINCRBY', "listenings:" + getCurrDate("y"), "1", songId.toString() ]);
@@ -781,6 +846,8 @@ app.get("/leaderboards/:date/:basedOn", async (req, res) => {//TODO: provera da 
                 session.close()
             });
 })
+
+
 
 function getFileNameByUserId(path, userId){
     let fileName = ""

@@ -19,7 +19,6 @@ class Profile extends Component {
             playlists: [],
             coverPhotoSrc: "",
             profilePhotoSrc: "",
-            ratingList: [1, 2, 3, 4, 5]
         };
         this.uploadSingle = this.uploadSingle.bind(this)
         this.uploadAlbum = this.uploadAlbum.bind(this)
@@ -80,7 +79,6 @@ class Profile extends Component {
         let counter = 0;
         let songsInfoList = []
         formData.append("albumName", this.state.albumName);
-        formData.append("userId", 31);//this.state.user.id
         formData.append("numOfSongs", album.length);
         reader.onload = function (event) {
             var audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -231,7 +229,6 @@ class Profile extends Component {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                followerId: 16, //TODO: ovde treba da vadis id ulogovanog usera
                 followingId: this.state.user.id
             })
         })

@@ -16,6 +16,8 @@ class Home extends Component {
 
     componentDidMount(){
         this.fetchSongs()
+        if(!this.props.areNotifSet)
+            this.props.setupNotifications()
     }
 
     fetchSongs(){
@@ -30,7 +32,6 @@ class Home extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result.data)
                 if(result.status == 200){
                     this.setState({
                         songs: prepareSongs(result.data.songs),
