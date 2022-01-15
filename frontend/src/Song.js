@@ -44,7 +44,8 @@ class Song extends Component {
         (result) => {
             if(result.status == 200){
                 this.setState(prevState => ({
-                    comments: [result.data, ...prevState.comments]
+                    comments: [result.data, ...prevState.comments],
+                    commentText: ""
                 }))
             }
             else if(result.status == 401) {
@@ -119,6 +120,11 @@ class Song extends Component {
         )
     }
 
+    timestampToDate(timestamp){
+        var date = new Date(Number(timestamp));
+        return date.toLocaleString();
+    }
+
     render(){
         return(
         <div className="padding">
@@ -128,26 +134,37 @@ class Song extends Component {
                     ratingEnabled = {true}
                     playlistAdding = {true}
                     playingEnabled = {true} />
-                <div className="form-group">
-                    <label className = "title">Leave a comment</label>
-                    <input type="text" className="form-control" placeholder="Add a comment" value={this.state.commentText}
-                            onChange={(e) => this.setState({commentText: e.target.value})}/>
-                    <button className="btn btn-primary btn-block" onClick={this.postComment}>Comment</button>
+                <div className="form-group row">
+                    <label className = "title" style={{marginBottom: "10px"}}>Leave a comment</label>
+                    <input style={{marginBottom: "10px"}} type="text" className="form-control" placeholder="Add a comment" 
+                        value={this.state.commentText} onChange={(e) => this.setState({commentText: e.target.value})}/>
+                    <div className="col">
+                        <button className="btn btn-primary btn-block col-md-4" onClick={this.postComment}
+                        style={{width: "200px"}}>Comment</button>
+                        <select style={{width: "150px", height: "30px"}} className="col-md-4 offset-md-2" name="count" id="commentsCount" onChange={this.fetchComments}>
+                            <option value="5">Last 5 comments</option>
+                            <option value="10">Last 10 comments</option>
+                            <option value="15">Last 15 comments</option>
+                            <option value="20">Last 20 comments</option>
+                        </select>
+                    </div>
                 </div>
-                <select name="count" id="commentsCount" onChange={this.fetchComments}>
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="15">15</option>
-                    <option value="20">20</option>
-                </select>
+                <div className="list list-row block" style={{marginTop: "20px"}}>
                 {
                     this.state.comments.map((e, i) =>
-                        <div key = {i} className = "comment">
-                            <a href={"/profile/" + e.username}><p>{"@" + e.username}</p></a>
-                            <p>{e.text}</p>
+                        <div className="list-item" key={i}>
+                            <div><a href="#" data-abc="true"><span className="w-48 avatar gd-warning">C</span></a></div>
+                            <div className="row" style={{textAlign: "left"}}>
+                                <a href={"/profile/" + e.username}>
+                                    <p style={{marginBottom: "0px"}}>{"@" + e.username + "  " + this.timestampToDate(e.timestamp)}</p>
+                                </a>
+                                <p style={{marginBottom: "0px"}}>{e.text}</p>
+                            </div>
                         </div>
+                        
                     )
                 }
+                </div>
             </div>
         </div>
         )
