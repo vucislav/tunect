@@ -29,10 +29,10 @@ class Login extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status === 200) {
                     localStorage.setItem('token', result.data.token)
                     localStorage.setItem('username', result.data.username)
+                    localStorage.setItem('userId', result.data.userId)
                     this.props.navigate('/home')
                 } else if(result.status === 400)
                     this.setState({invalidLoginInput: result.message})

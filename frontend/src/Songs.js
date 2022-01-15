@@ -77,7 +77,6 @@ class Songs extends React.Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status == 400)
                     console.log(result.message)
             },
@@ -110,7 +109,6 @@ class Songs extends React.Component {
             .then(res => res.json())
             .then(
                 (result) => {
-                    console.log(result)
                     if(result.status == 400)
                         console.log(result.message)
                     else if (result.status == 401) {
@@ -201,9 +199,7 @@ class Songs extends React.Component {
             .then(res => res.json())
             .then(
                 (result) => {
-                    if(result.status == 200)
-                        console.log(result)
-                    else if (result.status == 401) {
+                    if (result.status == 401) {
                         localStorage.removeItem('token')
                         this.props.navigate('/login')
                     } 
@@ -304,7 +300,8 @@ class Songs extends React.Component {
                                     <audio id={"audio" + song.id} controls={true}
                                         type={"audio/" + song.extension.substring(1, song.extension.length)}
                                         src={song.audioUrl} onPlay={(e) => this.onSongPlay(e, song.id)}></audio>
-                                </div>)
+                                </div>
+                            )
                         }
                     )}
                 </div>

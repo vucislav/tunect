@@ -13,6 +13,8 @@ import { Routes, Route, Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { CancelIcon } from './Utility';
 import Song from './Song'
+import Following from './Following'
+import Recommended from './Recommended'
 
 var wsClient = {}
 
@@ -52,7 +54,6 @@ class App extends React.Component {
       });
       let app = this
       wsClient.addEventListener('message', function (event) {
-          console.log('Message from server ', event.data);
           let { publisherId, type, id, text } = app.parseMessage(event.data)
           let newNotif = {publisherId: publisherId, text:text, id: id, type: type}
           app.setState(prevState => ({
@@ -83,6 +84,12 @@ class App extends React.Component {
                     <Link className="nav-link" to={"/home"}>Home</Link>
                   </li>
                   <li className="nav-item">
+                    <Link className="nav-link" to={"/recommended"}>Recommended</Link>
+                  </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/following"}>Following</Link>
+                  </li> 
+                  <li className="nav-item">
                     <Link className="nav-link" to={"/profile/" + localStorage.getItem('username')}>Profile</Link>
                   </li>
                   <li className="nav-item">
@@ -91,6 +98,9 @@ class App extends React.Component {
                   <li className="nav-item">
                     <Link className="nav-link" to={"/leaderboard"}>Leaderboard</Link>
                   </li>
+                  <li className="nav-item">
+                    <Link className="nav-link" to={"/notifications"}>Notifications</Link>
+                  </li> 
                   <li className="nav-item">
                     <a href="" className="nav-link" onClick={
                       (e) => {
@@ -108,7 +118,7 @@ class App extends React.Component {
                   </li>
                   <li className="nav-item">
                     <Link className="nav-link" to={"/register"}>Register</Link>
-                  </li> 
+                  </li>
                 </ul>
                 }
             </div>
@@ -163,6 +173,8 @@ class App extends React.Component {
           <Route path="/album/:albumId" element={<Album/>} />
           <Route path="/leaderboard" element={<Leaderboard/>} />
           <Route path="/song/:songId" element={<Song/>} />
+          <Route path="/following" element={<Following />} />
+          <Route path="/recommended" element={<Recommended />} />
         </Routes>
       </div>
     );

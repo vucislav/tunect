@@ -42,7 +42,6 @@ class Song extends Component {
     .then(res => res.json())
     .then(
         (result) => {
-            console.log(result)
             if(result.status == 200){
                 this.setState(prevState => ({
                     comments: [result.data, ...prevState.comments]
@@ -73,7 +72,6 @@ class Song extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status == 200){
                     this.setState({
                         comments: result.data,

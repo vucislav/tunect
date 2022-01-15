@@ -41,7 +41,6 @@ class Register extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status == 200)
                     this.props.navigate('/login')
                 else if(result.status == 400)

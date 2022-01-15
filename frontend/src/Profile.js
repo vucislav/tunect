@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from 'axios'
 import Songs from './Songs'
 import { EditIcon, prepareSongs } from "./Utility";
+import Albums from './Albums'
 
 class Profile extends Component {
     constructor(props) {
@@ -79,7 +80,6 @@ class Profile extends Component {
         let counter = 0;
         let songsInfoList = []
         formData.append("albumName", this.state.albumName);
-        formData.append("numOfSongs", album.length);
         reader.onload = function (event) {
             var audioContext = new (window.AudioContext || window.webkitAudioContext)();
             audioContext.decodeAudioData(event.target.result, async function(buffer) {
@@ -120,7 +120,7 @@ class Profile extends Component {
                 if(result.status == 200){
                     this.setState({
                         user: result.data
-                    })
+                    })//TODO: vadi slicke
                     //this.getPhoto("profile")
                     //this.getPhoto("cover")
                 } else if (result.status == 401) {
@@ -235,10 +235,7 @@ class Profile extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
-                if(result.status == 200)
-                    console.log("sve kul")
-                else if (result.status == 401) {
+                if (result.status == 401) {
                     localStorage.removeItem('token')
                     this.props.navigate('/login')
                 } 
@@ -363,24 +360,7 @@ class Profile extends Component {
                                 loggedInUserPlaylists = {this.state.loggedInUserPlaylists}
                                 playlistAdding = {true}/>
                             <h3>Albums</h3>
-                            <div className="row">
-                                <div className="col-sm-12">
-                                    <div className="list list-row block">
-                                        {this.state.albums.map((e, i) => 
-                                            <div className="list-item" key={i}>
-                                                <div><a href="#" data-abc="true"><span className="w-48 avatar gd-warning">A</span></a></div>
-                                                <div className="flex"> <a href="#" className="item-author text-color" data-abc="true"
-                                                    onClick={(event) => this.props.navigate('/album/' + e.id)}>{ e.title }</a>
-                                                    <div className="item-except text-muted text-sm h-1x"> { e.artist + " • " + e.songCount + " songs" }</div>
-                                                </div>
-                                                <div className="no-wrap">
-                                                    <div className="item-date text-muted text-sm d-none d-md-block">{ }</div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            <Albums albums = {this.state.albums} />
                             <h3>Playlists</h3>
                             <div className="row">
                                 <div className="col-sm-12">

@@ -1,6 +1,7 @@
 import { Component } from "react";
 import Songs from './Songs'
 import { prepareSongs } from "./Utility";
+import './Leaderboard.css'
 
 export default class Leaderboard extends Component {
     constructor(props) {
@@ -17,13 +18,20 @@ export default class Leaderboard extends Component {
     }
 
     componentDidMount(){
-        this.fetchSongs()
     }
 
     fetchSongs(){
-        let date = "2022."
+        let checkboxes = document.querySelectorAll('.basedOnCb');
         let basedOn = "rating"
-        fetch("http://localhost:3030/leaderboards/" + date + "/" + basedOn, { //TODO: id ulogovanog
+        checkboxes.forEach((e) => {
+            if(e.checked) basedOn = e.value
+        })
+        let date = ""
+        if(this.state.day !== "") date += this.state.day + '.'
+        if(this.state.month !== "") date += this.state.month + '.'
+        if(this.state.year !== "") date += this.state.year + '.'
+        if(date === "") return
+        fetch("http://localhost:3030/leaderboards/" + date + "/" + basedOn, {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -34,7 +42,6 @@ export default class Leaderboard extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result.data); 
                 if(result.status == 200){
                     this.setState({
                         songs: prepareSongs(result.data.songs)
@@ -50,12 +57,30 @@ export default class Leaderboard extends Component {
         )
     }
 
-    render(){//onClick = { (event) => this.props.fetchSongs() }
+    render(){
         return(
         <div className="padding">
             <div className="col-md-8 offset-md-2">
                 <h3>Leaderboard</h3>
-                <button className="btn btn-danger btn-block" onClick = { this.publish }>Submit</button>
+                <div className="dateInputContainer">
+                    <label className = "dateLbl">Day</label>
+                    <input type="number" className="form-control dateInput" value={this.state.day}
+                                onChange={(e) => this.setState({day: e.target.value})}/>
+                    <label className = "dateLbl">Month</label>
+                    <input type="number" className="form-control dateInput"  value={this.state.month}
+                                onChange={(e) => this.setState({month: e.target.value})}/>
+                    <label className = "dateLbl">Year</label>
+                    <input type="number" className="form-control dateInput" value={this.state.year}
+                                onChange={(e) => this.setState({year: e.target.value})}/>
+
+                    <input className = "basedOnCb" defaultChecked type="radio" name="basedOn" value="rating"/>
+                    <label>Rating</label>
+
+                    <input className = "basedOnCb" type="radio" name="basedOn" value="listenings"/>
+                    <label>Listenings</label>
+
+                    <button className="btn btn-danger btn-block" onClick = { (event) => this.fetchSongs() }>Submit</button>
+                </div>
                 <Songs songs = {this.state.songs}
                     ratingEnabled = {true}
                     playlistAdding = {true}

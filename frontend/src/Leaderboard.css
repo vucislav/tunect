@@ -1,0 +1,20 @@
+.dateInput{
+    display: inline;
+    width: 100px;
+    margin-right: 15px;
+}
+
+.dateLbl{
+    display: inline;
+    margin-right: 5px;
+}
+
+.dateInputContainer{
+    margin-bottom: 10px;
+}
+
+h3{
+    color: black;
+    text-align: center;
+    margin-top: 20px;
+}

@@ -64,7 +64,6 @@ class Playlists extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status == 200)
                     this.setState(prevState => ({
                         myPlaylists: [result.data, ...prevState.myPlaylists]
@@ -93,7 +92,6 @@ class Playlists extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result)
                 if(result.status == 200)
                     this.setState(prevState => ({
                         myPlaylists: prevState.myPlaylists.filter(e => e.id != playlistId)

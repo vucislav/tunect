@@ -10,7 +10,10 @@ const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 var redisClient = {}
 const env = process.env
-var comments = require('./comments.js');
+const comments = require('./comments');
+const songs = require('./songs');
+const following = require('./following');
+const { prepareSongs } = require('./utility')
 
 app = express()
 app.use(cors())
@@ -87,6 +90,7 @@ async function setupSubscriber(){
         });
     });
 }
+
 setupSubscriber()
 
 function parseMessage(message){
@@ -152,7 +156,8 @@ app.post("/login", (req, res) => {
                     user_id = result.records[0]._fields[1].low
                     if (bcrypt.compareSync(req.body.password, user.password)) {
                         token = jwt.sign({user_id: user_id}, env.JWT_SECRET)
-                        res.status(200).json({status: 200, data: { token: token, username: user.username}})
+                        res.status(200).json({status: 200, data: { token: token, username: user.username,
+                                                userId: user_id}})
                     } else {
                         res.status(401).json({message: "Wrong password."})
                     }
@@ -177,6 +182,13 @@ app.use((req, res, next) => {
 })
 
 comments(app, driver, redisClient)
+songs(app, driver, redisClient)
+following(app, driver, redisClient)
+
+function getCurrTimestamp(){
+    const currentDate = new Date();
+    return currentDate.getTime().toString()
+}
 
 app.post("/uploadSingle", (req, res) => {
     const session = driver.session()
@@ -185,9 +197,10 @@ app.post("/uploadSingle", (req, res) => {
     let fileName = singleFile.name
     let title = fileName.substring(0, fileName.lastIndexOf("."));
     let extension = fileName.substring(fileName.lastIndexOf("."), fileName.length);
+    let timestamp = getCurrTimestamp()
     session.run("MATCH (u:User) WHERE id(u) = " + userId + " create (u)-[:Published]->(song:Song {title: \"" 
                 + title + "\", duration: " + req.body.duration + 
-                ", extension: '" + extension + "'}) RETURN id(song), u.stageName as stageName")
+                ", extension: '" + extension + "', timestamp: " + timestamp + "}) RETURN id(song), u.stageName as stageName")
             .then(async function(result){
                 res.status(200).json({status: 200, message: "OK"})
                 let songId = result.records[0]._fields[0].low
@@ -206,19 +219,19 @@ app.post("/uploadSingle", (req, res) => {
 app.post("/uploadAlbum", (req, res) => {
     const session = driver.session()
     let albumName = req.body.albumName
-    let songCount = req.body.numOfSongs
     let songsInfo = JSON.parse(req.body.songsInfo)
     let songFiles = req.files
     let userId = req.user_id
     let titles = []
     let extensions = []
+    let timestamp = getCurrTimestamp()
     for(let i = 0; i < songCount; i++){
         let fullTitle = songFiles["song" + i].name
         titles.push(fullTitle.substring(0, fullTitle.lastIndexOf(".")))
         extensions.push(fullTitle.substring(fullTitle.lastIndexOf("."), fullTitle.length))
     }
     session.run("match (u:User) where id(u) = " + userId + " create (u)-[:Published]->(album:Album {title: \"" +
-                albumName + "\", songCount: " + songCount + " }) return id(album), u.stageName as stageName")
+                albumName + "\", timestamp: " + timestamp + " }) return id(album), u.stageName as stageName")
     .then(function(result){
         let albumId = result.records[0]._fields[0].low
         let stageName = result.records[0]._fields[1]
@@ -227,7 +240,8 @@ app.post("/uploadAlbum", (req, res) => {
         songsInfo.forEach((e, i) => {
             let title = titles[i]
             query += "(album)-[:Includes]->" +
-                "(s" + i + ":Song {title: '" + title + "', duration: " + e.duration + ", extension: '" + extensions[i] + "'})"
+                "(s" + i + ":Song {title: '" + title + "', duration: " + e.duration + ", extension: '" + extensions[i] 
+                + "', timestamp: " + timestamp + "})"
             if(i !== songsInfo.length - 1)
                 query += ", "
             returnPart += "id(s" + i + ")"
@@ -720,14 +734,16 @@ app.get("/song/:songId", async (req, res) => {
     }
 })
 
-app.get("/recommended/:userId", async (req, res) => {
+app.get("/recommended/:userId", async (req, res) => {//+ " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
     const session = driver.session()
     let userId = req.params.userId
-    session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Published]-(u:User)" +
-                " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)" +
-                " return distinct s2 as song, u.stageName as artist")
+    session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Published]-(u:User)" 
+                + ", (s2)<-[r:Rated]-(:User)"
+                + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)"
+                + " return distinct s2 as song, u.stageName as artist, avg(r.rating) as avgRating")
     .then(async function(result){
-        let songs = []
+        let songs = await prepareSongs(result.records)
+        /*let songs = []
         for(let i = 0; i < result.records.length; i++){
             let e = result.records[i]
             let songIndex = e._fieldLookup["song"]
@@ -740,13 +756,17 @@ app.get("/recommended/:userId", async (req, res) => {
             })
             songs[i].avgRating = await averageRating(songs[i].id)
             songs[i].songFile = await getSongFile(songs[i].id, songs[i].extension)
-        }
-        session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User)" +
-                " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)" +
-                " return distinct s2 as song, u.stageName as artist, id(a) as albumId")
+        }*/
+        session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User)"
+                + " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
+                + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)" 
+                + " return distinct s2 as song, u.stageName as artist, id(a) as albumId, avg(r.rating) as avgRating")
             .then(async function(result){
                 let currLength = songs.length
-                for(let i = 0; i < result.records.length; i++){
+                let restOfTheSongs = await prepareSongs(result.records)
+                songs = songs.concat(restOfTheSongs)
+                //songs[i + currLength].songFile = await getSongFile(songs[i + currLength].id, songs[i + currLength].extension, albumId)
+                /*for(let i = 0; i < result.records.length; i++){
                     let e = result.records[i]
                     let songIndex = e._fieldLookup["song"]
                     let artistIndex = e._fieldLookup["artist"]
@@ -758,8 +778,7 @@ app.get("/recommended/:userId", async (req, res) => {
                         artist: e._fields[artistIndex],
                     })
                     songs[i + currLength].avgRating = await averageRating(songs[i + currLength].id)
-                    songs[i + currLength].songFile = await getSongFile(songs[i + currLength].id, songs[i + currLength].extension, albumId)
-                }
+                }*/
                 res.status(200).json({status: 200, message: "OK", data: {songs: songs}})
                 session.close()
             }).catch((error) => {
@@ -813,8 +832,8 @@ app.get("/leaderboards/:date/:basedOn", async (req, res) => {//TODO: provera da 
                     songs[i].avgRating = await averageRating(songs[i].id)
                     songs[i].songFile = await getSongFile(songs[i].id, songs[i].extension)
                 }
-                session.run("unwind " + idsAsString + " as songId match (s:Song)<-[:Includes]-(:Album)<-[:Published]-(u:User) where id(s) = songId "
-                            + " return u.username as username, s as song")
+                session.run("unwind " + idsAsString + " as songId match (s:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User) where id(s) = songId "
+                            + " return u.username as username, s as song, id(a) as albumId")
                     .then(async function(result){
                         let currLength = songs.length
                         for(let i = 0; i < result.records.length; i++){
@@ -846,8 +865,6 @@ app.get("/leaderboards/:date/:basedOn", async (req, res) => {//TODO: provera da 
                 session.close()
             });
 })
-
-
 
 function getFileNameByUserId(path, userId){
     let fileName = ""

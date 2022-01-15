@@ -1,27 +1,24 @@
 import { Component } from "react";
 import { useNavigate } from "react-router-dom";
-import './Home.css';
 import Songs from './Songs'
 import { prepareSongs } from "./Utility";
     
-class Home extends Component {
+class Recommended extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            singles: [],
-            songsOnAlbums: []
+            songs: [],
+            albums: []
         };
         this.fetchSongs = this.fetchSongs.bind(this)
     }
 
     componentDidMount(){
         this.fetchSongs()
-        if(!this.props.areNotifSet)
-            this.props.setupNotifications()
     }
 
     fetchSongs(){
-        fetch("http://localhost:3030/singles", {
+        fetch("http://localhost:3030/recommended/" + localStorage.getItem("userId"), { //TODO: id ulogovanog
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -34,34 +31,9 @@ class Home extends Component {
             (result) => {
                 if(result.status == 200){
                     this.setState({
-                        singles: result.data
-                    })
-                }
-                else if(result.status == 401) {
-                    localStorage.removeItem('token')
-                    this.props.navigate('/login')
-                } else if(result.status == 400)
-                    this.setState({invalidRegInput: result.message})
-            },
-            (error) => {
-                console.log(error)
-            }
-        )
-
-        fetch("http://localhost:3030/songsOnAlbums", { 
-            method: 'GET',
-            mode: 'cors',
-            headers: {
-                'Authorization': localStorage.getItem('token'),
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => res.json())
-        .then(
-            (result) => {
-                if(result.status == 200){
-                    this.setState({
-                        songsOnAlbums: result.data
+                        //songs: prepareSongs(result.data.songs), //TODO: da l ce moci odavde da se pustaju pesme 
+                        songs: result.data.songs,
+                        albums: result.data.albums
                     })
                 }
                 else if(result.status == 401) {
@@ -80,12 +52,8 @@ class Home extends Component {
         return(
         <div className="padding">
             <div className="col-md-8 offset-md-2">
-                <h3>Singles</h3>
-                <Songs songs = {this.state.singles}
-                    ratingEnabled = {true}
-                    playlistAdding = {true} />
-                <h3>Songs on albums</h3>
-                <Songs songs = {this.state.songsOnAlbums}
+                <h3>Recommended songs</h3>
+                <Songs songs = {this.state.songs}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
             </div>
@@ -96,7 +64,7 @@ class Home extends Component {
 
 function WithNavigate(props) {
     let navigate = useNavigate();
-    return <Home {...props} navigate={navigate} />
+    return <Recommended {...props} navigate={navigate} />
   }
   
   export default WithNavigate

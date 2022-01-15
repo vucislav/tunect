@@ -1,27 +1,20 @@
 import { Component } from "react";
 import { useNavigate } from "react-router-dom";
-import './Home.css';
 import Songs from './Songs'
-import { prepareSongs } from "./Utility";
-    
-class Home extends Component {
+import Albums from './Albums'
+
+class Following extends Component {
     constructor(props) {
         super(props);
         this.state = {
             singles: [],
-            songsOnAlbums: []
+            songsOnAlbums: [],
+            albums: []
         };
-        this.fetchSongs = this.fetchSongs.bind(this)
     }
 
     componentDidMount(){
-        this.fetchSongs()
-        if(!this.props.areNotifSet)
-            this.props.setupNotifications()
-    }
-
-    fetchSongs(){
-        fetch("http://localhost:3030/singles", {
+        fetch("http://localhost:3030/following/singles", {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -48,7 +41,7 @@ class Home extends Component {
             }
         )
 
-        fetch("http://localhost:3030/songsOnAlbums", { 
+        fetch("http://localhost:3030/following/songsOnAlbums", { 
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -62,6 +55,33 @@ class Home extends Component {
                 if(result.status == 200){
                     this.setState({
                         songsOnAlbums: result.data
+                    })
+                }
+                else if(result.status == 401) {
+                    localStorage.removeItem('token')
+                    this.props.navigate('/login')
+                } else if(result.status == 400)
+                    this.setState({invalidRegInput: result.message})
+            },
+            (error) => {
+                console.log(error)
+            }
+        )
+
+        fetch("http://localhost:3030/following/albums", { 
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Authorization': localStorage.getItem('token'),
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(
+            (result) => {
+                if(result.status == 200){
+                    this.setState({
+                        albums: result.data
                     })
                 }
                 else if(result.status == 401) {
@@ -88,6 +108,8 @@ class Home extends Component {
                 <Songs songs = {this.state.songsOnAlbums}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
+                <h3>Albums</h3>
+                <Albums albums = {this.state.albums} />
             </div>
         </div>
         )
@@ -96,7 +118,7 @@ class Home extends Component {
 
 function WithNavigate(props) {
     let navigate = useNavigate();
-    return <Home {...props} navigate={navigate} />
+    return <Following {...props} navigate={navigate} />
   }
   
   export default WithNavigate
