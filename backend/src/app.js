@@ -13,7 +13,7 @@ const env = process.env
 const comments = require('./comments');
 const songs = require('./songs');
 const following = require('./following');
-const { prepareSongs } = require('./utility')
+const { prepareSongs, prepareAlbums } = require('./utility')
 
 app = express()
 app.use(cors())
@@ -734,53 +734,45 @@ app.get("/song/:songId", async (req, res) => {
     }
 })
 
-app.get("/recommended/:userId", async (req, res) => {//+ " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
+app.get("/recommended/:userId", async (req, res) => {
     const session = driver.session()
     let userId = req.params.userId
     session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Published]-(u:User)" 
-                + ", (s2)<-[r:Rated]-(:User)"
+                //+ ", (s2)<-[r:Rated]-(:User)"
                 + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)"
-                + " return distinct s2 as song, u.stageName as artist, avg(r.rating) as avgRating")
+                + " return distinct s2 as song, u.stageName as artist")//, avg(r.rating) as avgRating
     .then(async function(result){
         let songs = await prepareSongs(result.records)
-        /*let songs = []
-        for(let i = 0; i < result.records.length; i++){
-            let e = result.records[i]
-            let songIndex = e._fieldLookup["song"]
-            let artistIndex = e._fieldLookup["artist"]
-            songs.push({
-                ...e._fields[songIndex].properties,
-                id: e._fields[songIndex].identity.low,
-                labels: e._fields[songIndex].labels,
-                artist: e._fields[artistIndex],
-            })
-            songs[i].avgRating = await averageRating(songs[i].id)
-            songs[i].songFile = await getSongFile(songs[i].id, songs[i].extension)
-        }*/
         session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User)"
-                + " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
+                //+ " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
                 + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)" 
-                + " return distinct s2 as song, u.stageName as artist, id(a) as albumId, avg(r.rating) as avgRating")
+                + " return distinct s2 as song, u.stageName as artist, id(a) as albumId")//, avg(r.rating) as avgRating
             .then(async function(result){
-                let currLength = songs.length
                 let restOfTheSongs = await prepareSongs(result.records)
                 songs = songs.concat(restOfTheSongs)
-                //songs[i + currLength].songFile = await getSongFile(songs[i + currLength].id, songs[i + currLength].extension, albumId)
-                /*for(let i = 0; i < result.records.length; i++){
-                    let e = result.records[i]
-                    let songIndex = e._fieldLookup["song"]
-                    let artistIndex = e._fieldLookup["artist"]
-                    let albumId = e._fields[e._fieldLookup["albumId"]].low
-                    songs.push({
-                        ...e._fields[songIndex].properties,
-                        id: e._fields[songIndex].identity.low,
-                        labels: e._fields[songIndex].labels,
-                        artist: e._fields[artistIndex],
-                    })
-                    songs[i + currLength].avgRating = await averageRating(songs[i + currLength].id)
-                }*/
-                res.status(200).json({status: 200, message: "OK", data: {songs: songs}})
-                session.close()
+                let albumOccurrence = {}
+                let albumIds = []
+                restOfTheSongs.forEach(e => {
+                    if(albumOccurrence[e.albumId] === undefined)
+                        albumOccurrence[e.albumId] = 1
+                    else if (albumOccurrence[e.albumId] < 2){
+                        albumOccurrence[e.albumId]++
+                        if(albumOccurrence[e.albumId] == 2)
+                            albumIds.push(e.albumId)
+                    }
+                })
+                session.run("unwind [" + albumIds.toString() + "] as el match (u:User)-[:Published]->(a:Album)-[i:Includes]->(:Song)"
+                        + " where id(a) = el"
+                        + " return a as album, u.username as artist, count(i) as songCount")
+                    .then(async function(result){
+                        let albums = await prepareAlbums(result.records)
+                        res.status(200).json({status: 200, message: "OK", data: {songs: songs, albums: albums}})
+                        session.close()
+                    }).catch((error) => {
+                        console.error(error);
+                        res.status(500).json({status: 500, message: "Internal server error"})
+                        session.close()
+                    });
             }).catch((error) => {
                 console.error(error);
                 res.status(500).json({status: 500, message: "Internal server error"})

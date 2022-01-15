@@ -15,6 +15,9 @@ function prepareSongs(records){
                 username: song._fields[usernameIndex],
                 avgRating: song._fields[avgRatingIndex] === null ? 0 : song._fields[avgRatingIndex]
             }
+            let albumIdIndex = song._fieldLookup["albumId"]
+            if(albumIdIndex !== undefined)
+                res.albumId = song._fields[albumIdIndex].low
             songs.push(res)
         }
         resolve(songs)

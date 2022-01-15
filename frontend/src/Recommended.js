@@ -1,8 +1,9 @@
 import { Component } from "react";
 import { useNavigate } from "react-router-dom";
 import Songs from './Songs'
+import Albums from "./Albums";
 import { prepareSongs } from "./Utility";
-    
+
 class Recommended extends Component {
     constructor(props) {
         super(props);
@@ -29,6 +30,7 @@ class Recommended extends Component {
         .then(res => res.json())
         .then(
             (result) => {
+                console.log(result.data.songs)
                 if(result.status == 200){
                     this.setState({
                         //songs: prepareSongs(result.data.songs), //TODO: da l ce moci odavde da se pustaju pesme 
@@ -56,6 +58,8 @@ class Recommended extends Component {
                 <Songs songs = {this.state.songs}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
+                <h3>Albums</h3>
+                <Albums albums = {this.state.albums} />
             </div>
         </div>
         )
