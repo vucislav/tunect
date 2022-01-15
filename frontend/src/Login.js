@@ -1,5 +1,6 @@
 import React, { Component } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
+import './Login.css'
 
 class Login extends Component {
     constructor(props) {
@@ -57,13 +58,13 @@ class Login extends Component {
 
             <div className="form-group">
                 <label>Email address</label>
-                <input type="email" className="form-control" placeholder="Enter email" 
+                <input type="email" className="form-control loginInput" placeholder="Enter email" 
                   onChange={(e) => this.setState({email: e.target.value})}/>
             </div>
 
             <div className="form-group">
                 <label>Password</label>
-                <input type="password" className="form-control" placeholder="Enter password"
+                <input type="password" className="form-control loginInput" placeholder="Enter password"
                   onChange={(e) => this.setState({password: e.target.value})} />
             </div>
 
@@ -73,10 +74,7 @@ class Login extends Component {
                         {this.state.invalidLoginInput}</p>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block" onClick = {this.login}>Submit</button>
-            <p className="forgot-password text-right">
-                Forgot <a href="#">password?</a>
-            </p>
+            <button type="submit" className="btn btn-primary btn-block loginBtn" onClick = {this.login}>Submit</button>
           </form>
         );
     }

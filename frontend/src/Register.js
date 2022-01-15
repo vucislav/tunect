@@ -107,9 +107,6 @@ class Register extends Component {
                 </div>
 
                 <button id="regBtn" type="submit" className="btn btn-primary btn-block" onClick={this.register}>Sign Up</button>
-                <p className="forgot-password text-right">
-                    Already registered <a href="/login">login?</a>
-                </p>
             </form>
         );
     }

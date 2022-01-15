@@ -37,7 +37,7 @@ class Playlist extends Component {
             (result) => {
                 if(result.status == 200){
                     this.setState({
-                        songs: prepareSongs(result.data.songs),
+                        songs: result.data.songs,
                         playlist: result.data.playlist
                     })
                 } else if (result.status == 401) {
@@ -53,7 +53,7 @@ class Playlist extends Component {
     }
 
     removeFromPlaylist(songId){
-        fetch("http://localhost:3030/playlist/" + this.state.playlistId + "/" + songId, { //TODO: ovde treba da vadis id ulogovanog usera
+        fetch("http://localhost:3030/playlist/" + this.state.playlistId + "/" + songId, {
             method: 'DELETE',
             mode: 'cors',
             headers: {
@@ -85,8 +85,9 @@ class Playlist extends Component {
             <h3 id="playlistName">{this.state.playlist.name}</h3>
             <Songs songs = {this.state.songs}
                 ratingEnabled = {true}
-                isMyPlaylist={this.state.playlist.creatorId == 46} //TODO: umesto 46 treba da stoji id ulogovanog usera
+                isMyPlaylist={this.state.playlist.creatorId == localStorage.getItem("userId")}
                 playlistAdding = {true} 
+                playingEnabled = {false}
                 removeFromPlaylist = {this.removeFromPlaylist}/>
         </div>
     </div>)

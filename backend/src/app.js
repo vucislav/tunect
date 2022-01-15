@@ -13,7 +13,8 @@ const env = process.env
 const comments = require('./comments');
 const songs = require('./songs');
 const following = require('./following');
-const { prepareSongs, prepareAlbums } = require('./utility')
+const albums = require('./albums');
+const { prepareSongs, prepareAlbums, preparePlaylists } = require('./utility')
 
 app = express()
 app.use(cors())
@@ -105,14 +106,6 @@ function parseMessage(message){
     return {publisherId, type, id, text}
 }
 
-/* strutkura jednog node-a (ovako result.records[0]._fields dolazis do nje)
-Node {
-    identity: Integer { low: 3, high: 0 },
-    labels: [ 'USER' ],
-    properties: { password: '123', email: 'lazarminic028@gmail.com' }
-  }
-*/
-
 app.post("/register", (req, res) => {
     const session = driver.session()
     session.run("match (u:User) where u.username = '" + req.body.username + "' or u.email = '" + req.body.email + "' return id(u)")
@@ -184,6 +177,7 @@ app.use((req, res, next) => {
 comments(app, driver, redisClient)
 songs(app, driver, redisClient)
 following(app, driver, redisClient)
+albums(app, driver, redisClient)
 
 function getCurrTimestamp(){
     const currentDate = new Date();
@@ -204,7 +198,7 @@ app.post("/uploadSingle", (req, res) => {
             .then(async function(result){
                 res.status(200).json({status: 200, message: "OK"})
                 let songId = result.records[0]._fields[0].low
-                let path = `${__dirname}/singles/${songId + extension}`
+                let path = `${__dirname}/../singles/${songId + extension}`
                 let stageName = result.records[0]._fields[1]
                 singleFile.mv(path)
                 await redisClient.publish('notifications', userId + ":single:" + songId + ":" + (stageName + " has published a new single: " + title));
@@ -220,6 +214,7 @@ app.post("/uploadAlbum", (req, res) => {
     const session = driver.session()
     let albumName = req.body.albumName
     let songsInfo = JSON.parse(req.body.songsInfo)
+    let songCount = req.body.songCount
     let songFiles = req.files
     let userId = req.user_id
     let titles = []
@@ -229,7 +224,7 @@ app.post("/uploadAlbum", (req, res) => {
         let fullTitle = songFiles["song" + i].name
         titles.push(fullTitle.substring(0, fullTitle.lastIndexOf(".")))
         extensions.push(fullTitle.substring(fullTitle.lastIndexOf("."), fullTitle.length))
-    }
+    } 
     session.run("match (u:User) where id(u) = " + userId + " create (u)-[:Published]->(album:Album {title: \"" +
                 albumName + "\", timestamp: " + timestamp + " }) return id(album), u.stageName as stageName")
     .then(function(result){
@@ -254,7 +249,7 @@ app.post("/uploadAlbum", (req, res) => {
                 let songs = result.records[0]._fields
                 fs.mkdirSync("./albums/" + albumId)
                 songs.forEach((e, i) => {
-                    let path = `${__dirname}/albums/${albumId + "/"}${e.low + extensions[i]}`
+                    let path = `${__dirname}/../albums/${albumId + "/"}${e.low + extensions[i]}`
                     songFiles["song" + i].mv(path)
                 })
                 await redisClient.publish('notifications', userId + ":album:" + albumId + ":" + (stageName + " has published a new album: " + albumName));
@@ -302,6 +297,27 @@ app.get("/user/:username", (req, res) => {
         });
 })
 
+app.get("/isFollowing/:followerId/:followingId", (req, res) => {
+    const session = driver.session()
+    let followerId = req.params.followerId
+    let followingId = req.params.followingId
+    session.run("MATCH (u1:User)-[f:Follows]->(u2:User) where id(u1) = " + followerId
+            + " and id(u2) = " + followingId 
+            + " RETURN f")
+        .then(function(result){
+            if(result.records.length == 0){
+                res.status(200).json({status: 200, message: "OK", data: false})
+            } else {
+                res.status(200).json({status: 200, message: "OK", data: true})
+            }
+            session.close()
+        }).catch((error) => {
+            console.error(error);
+            res.status(500).json({status: 500, message: "Internal server error"})
+            session.close()
+        });
+})
+
 app.post("/follow", (req, res) => {
     const session = driver.session()
     let followerId =  req.user_id
@@ -335,67 +351,67 @@ app.post("/follow", (req, res) => {
             });
 })
 
+app.delete("/unfollow/:followingId", (req, res) => {
+    const session = driver.session()
+    let followerId =  req.user_id
+    let followingId = req.params.followingId
+    session.run("match (u1:User)-[f:Follows]->(u2:User) where id(u1) = " + followerId + " and id(u2) = " + followingId + 
+                " delete f")
+            .then(function(result){
+                res.status(200).json({status: 200, message: "OK"})
+            }).catch((error) => {
+                console.error(error);
+                res.status(500).json({status: 500, message: "Internal server error"})
+                session.close()
+            });
+})
+
 app.get("/user/:username/albums", (req, res) => {
     const session = driver.session()
     let username = req.params.username
     session.run("match (u:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) where u.username = \'" + username + 
                 "\' return a AS album, count(s) AS songCount, u.stageName AS artist")
-        .then(function(result){
-            let data = []
-            result.records.forEach((e) => {
-                let songCountIndex = e._fieldLookup["songCount"]
-                let artistIndex = e._fieldLookup["artist"]
-                let albumIndex = e._fieldLookup["album"]
-                data.push({
-                    ...e._fields[albumIndex].properties,
-                    id: e._fields[albumIndex].identity.low,
-                    labels: e._fields[albumIndex].labels,
-                    songCount: e._fields[songCountIndex].low,
-                    artist: e._fields[artistIndex]
-                })
-            })
-            res.status(200).json({status: 200, message: "OK", data: data})
-            session.close()
-        }).catch((error) => {
-            console.error(error);
-            res.status(500).json({status: 500, message: "Internal server error"})
-            session.close()
-        });
+    .then(async function(result){
+        let albums = await prepareAlbums(result.records)
+        res.status(200).json({status: 200, message: "OK", data: albums})
+        session.close()
+    }).catch((error) => {
+        console.error(error);
+        res.status(500).json({status: 500, message: "Internal server error"})
+        session.close()
+    });
 })
 
 app.get("/user/:username/singles", async (req, res) => {
     const session = driver.session()
     let username = req.params.username
-    let songs = await getSongs("match (u:User)-[:Published]->(s:Song) where u.username = \'" 
-                    + username + "\' ")
-    res.status(200).json({status: 200, message: "OK", data: songs})
-    session.close()
+    session.run("match (u:User)-[:Published]->(s:Song) where u.username = \'" 
+                + username + "\' optional match (s)<-[r:Rated]-(:User) return u.stageName AS artist, s AS song, avg(r.rating) as avgRating")
+    .then(async function(result){
+        let songs = await prepareSongs(result.records)
+        res.status(200).json({status: 200, message: "OK", data: songs})
+        session.close()
+    }).catch((error) => {
+        console.error(error);
+        res.status(500).json({status: 500, message: "Internal server error"})
+        session.close()
+    });
 })
 
 app.get("/user/:username/playlists", (req, res) => {
     const session = driver.session()
     let username = req.params.username
     session.run("match (u:User)-[:Created]->(p:Playlist) where u.username = \'" + username + 
-                "\' return ID(u) as creatorId, p AS playlist ORDER BY ID(p) DESC")
-        .then(function(result){
-            let data = []
-            result.records.forEach((e) => {
-                let playlistIndex = e._fieldLookup["playlist"]
-                let creatorIndex = e._fieldLookup["creatorId"]
-                data.push({
-                    ...e._fields[playlistIndex].properties,
-                    id: e._fields[playlistIndex].identity.low,
-                    labels: e._fields[playlistIndex].labels,
-                    creatorId: e._fields[creatorIndex].low
-                })
-            })
-            res.status(200).json({status: 200, message: "OK", data: data})
-            session.close()
-        }).catch((error) => {
-            console.error(error);
-            res.status(500).json({status: 500, message: "Internal server error"})
-            session.close()
-        });
+                "\' optional match (p)-[i:Includes]->(:Song) return ID(u) as creatorId, p AS playlist, count(i) as songCount ORDER BY ID(p) DESC")
+    .then(async function(result){
+        let playlists = await preparePlaylists(result.records)
+        res.status(200).json({status: 200, message: "OK", data: playlists})
+        session.close()
+    }).catch((error) => {
+        console.error(error);
+        res.status(500).json({status: 500, message: "Internal server error"})
+        session.close()
+    });
 })
 
 app.post("/createPlaylist", (req, res) => {
@@ -422,7 +438,7 @@ app.post("/createPlaylist", (req, res) => {
 app.post("/addToPlaylists", (req, res) => {
     let songId = req.body.songId
     let playlistIds = req.body.playlistIds
-    let userId = req.body.userId
+    let userId = req.user_id
     const session = driver.session()
     session.run("MATCH (u:User)-[r:Created]->(p:Playlist)-[i:Includes]->(s:Song) where id(u) = " + userId + " and id(s) = " + songId
                 + " delete i")
@@ -450,31 +466,34 @@ app.get("/playlist/:playlistId", (req, res) => {
     const session = driver.session()
     let playlistId = req.params.playlistId
     session.run("match (u:User)-[:Created]->(p:Playlist) where ID(p) = " + playlistId + 
-                " return ID(u) as creatorId,  p as playlist")
-        .then(async function(result){
-            if(result.records.length == 0){
-                res.status(400).json({status: 400, message: "This playlist does not exist."})
-                session.close()
-            } else {
-                let playlistInfo = result.records[0]
-                let playlistIndex = playlistInfo._fieldLookup["playlist"]
-                let creatorIndex = playlistInfo._fieldLookup["creatorId"]
-                let playlist = {
-                    ...playlistInfo._fields[playlistIndex].properties,
-                    id: playlistInfo._fields[playlistIndex].identity.low,
-                    labels: playlistInfo._fields[playlistIndex].labels,
-                    creatorId: playlistInfo._fields[creatorIndex].low
-                }
-                let songs = await getSongs("match (p:Playlist)-[:Includes]->(s:Song)<-[:Published]-(u:User) where ID(p) = " + playlistId)
-                res.status(200).json({status: 200, message: "OK", data: {playlist: playlist, songs: songs}})
-                session.close()
-            }
-            
-        }).catch((error) => {
-            console.error(error);
-            res.status(500).json({status: 500, message: "Internal server error"})
+                " optional match (p)-[i:Includes]->(:Song) return ID(u) as creatorId, count(i) as songCount, p as playlist")
+    .then(async function(result){
+        if(result.records.length == 0){
+            res.status(400).json({status: 400, message: "This playlist does not exist."})
             session.close()
-        });
+        } else {
+            let playlist = await preparePlaylists(result.records)
+            session.run("match (p:Playlist)-[:Includes]->(s:Song) where ID(p) = " + playlistId
+                + " optional match (s)<-[:Published]-(u1:User)"
+                + " optional match (s)<-[:Includes]-(a:Album)<-[:Published]-(u2:User)"
+                + " optional match (s)<-[r:Rated]-(:User)" 
+                + " return u1.username as username1, u2.username as username2, u1.stageName AS artist1, u2.stageName AS artist2, s AS song, avg(r.rating) as avgRating")
+            .then(async function(result){
+                let songs = await prepareSongs(result.records)
+                res.status(200).json({status: 200, message: "OK", data: {playlist: playlist[0], songs: songs}})
+                session.close()
+            }).catch((error) => {
+                console.error(error);
+                res.status(500).json({status: 500, message: "Internal server error"})
+                session.close()
+            });
+        }
+        
+    }).catch((error) => {
+        console.error(error);
+        res.status(500).json({status: 500, message: "Internal server error"})
+        session.close()
+    });
 })
 
 app.delete("/playlist/:playlistId/:songId", (req, res) => {
@@ -516,7 +535,7 @@ app.post("/rateSong", (req, res) => {
         return;
     }
     let songId = req.body.songId
-    let userId = req.body.userId
+    let userId = req.user_id
 
     session.run("MATCH (u:User)-[r:Rated]->(s:Song) where id(u) = " + userId + " and id(s) = " + songId +
                  " RETURN r.rating as newRating")
@@ -533,7 +552,6 @@ app.post("/rateSong", (req, res) => {
         .then(async function(result){
             let my = getCurrDate("my")
             let y = getCurrDate("y")
-            console.log("rating:" + songId.toString() + ":" + my)
             let monthRes = await redisClient.sendCommand(['HMGET',"rating:" + songId.toString() + ":" + my, "n", "sum"]);
             let yearRes = await redisClient.sendCommand(['HMGET',"rating:" + songId.toString() + ":" + y, "n", "sum"]);
             let n = 0, sum = 0
@@ -549,7 +567,6 @@ app.post("/rateSong", (req, res) => {
             n++
             let monthAvg = sum / n
             
-            console.log(n + ' ' + sum)
             await redisClient.sendCommand(['HMSET',"rating:" + songId.toString() + ":" + my, "n", n.toString()]);
             await redisClient.sendCommand(['HMSET',"rating:" + songId.toString() + ":" + my, "sum", sum.toString()]);
 
@@ -566,7 +583,6 @@ app.post("/rateSong", (req, res) => {
             n++
             let yearAvg = sum / n
 
-            console.log(monthAvg + ' ' + yearAvg)
             await redisClient.sendCommand(['HMSET',"rating:" + songId.toString() + ":" + y, "n", n.toString()]);
             await redisClient.sendCommand(['HMSET',"rating:" + songId.toString() + ":" + y, "sum", sum.toString()]);
 
@@ -628,22 +644,26 @@ app.get("/containSong/:userId/:songId", (req, res) => {
 app.post("/uploadPhoto", (req, res) => {
     let photoFile = req.files.photoFile
     let type = req.body.type
-    let userId = req.body.userId
+    let userId = req.user_id
     let photoName = photoFile.name
     let extension = photoName.substring(photoName.lastIndexOf("."), photoName.length);
     let path = ""
     let smallerPath = ""
     if(type === "cover") { 
-        path = `${__dirname}/cover_photos/${userId + extension}`
-        smallerPath = "/cover_photos/"
+        path = `${__dirname}/../cover_photos/${userId + extension}`
+        smallerPath = "./cover_photos/"
     }
     else if(type === "profile"){ 
-        path = `${__dirname}/profile_photos/${userId + extension}`
-        smallerPath = "/profile_photos/"
+        path = `${__dirname}/../profile_photos/${userId + extension}`
+        smallerPath = "./profile_photos/"
     }
-    fs.unlink('.' + smallerPath + getFileNameByUserId('.' + smallerPath, userId), (err) => {
-        if (err) console.error(err)
-    })
+    userId = 53
+    let fileName = getFileNameByUserId(smallerPath, userId)
+    if(fileName !== ""){
+        fs.unlink(smallerPath + fileName, (err) => {
+            if (err) console.error(err)
+        })
+    }
     photoFile.mv(path)
     res.status(200).json({status: 200, message: "OK"})
 })
@@ -660,7 +680,15 @@ app.get("/photo/:type/:userId", (req, res) => {
     }
     let fileName = getFileNameByUserId(path, userId)
     if(fileName === ""){
-        res.status(204).send("No content")
+        fs.readFile(path + "default_" + type + (type === "profile" ? ".jpg" : ".png" ), (err, data) =>{
+            if(err){
+                res.status(500).send("500 error")
+            } else {
+                let extension = fileName.substring(fileName.lastIndexOf(".") + 1, fileName.length);
+                res.writeHead(200,{'Content-type':'image/' + extension});
+                res.end(data);
+            }
+        });
     } else {
         fs.readFile(path + fileName, (err, data) =>{
             if(err){
@@ -678,7 +706,7 @@ app.get("/album/:albumId", (req, res) => {
     let albumId = req.params.albumId
     const session = driver.session()
     session.run("match (a:Album)<-[:Published]-(u:User) where ID(a) = " 
-                + albumId + " return a as album, u.stageName as stageName, id(u) as userId")
+                + albumId + " return a as album, u.stageName as stageName, id(u) as userId, u.username as username")
         .then(async function(result){
             if(result.records.length == 0){
                 res.status(400).json({status: 400, message: "This album does not exist."})
@@ -688,16 +716,27 @@ app.get("/album/:albumId", (req, res) => {
                 let albumIndex = albumInfo._fieldLookup["album"]
                 let stageNameIndex = albumInfo._fieldLookup["stageName"]
                 let userIdIndex = albumInfo._fieldLookup["userId"]
+                let usernameIndex = albumInfo._fieldLookup["username"]
                 let album = {
                     ...albumInfo._fields[albumIndex].properties,
                     id: albumInfo._fields[albumIndex].identity.low,
                     labels: albumInfo._fields[albumIndex].labels,
                     stageName: albumInfo._fields[stageNameIndex],
-                    userId: albumInfo._fields[userIdIndex].low
+                    userId: albumInfo._fields[userIdIndex].low,
+                    username: albumInfo._fields[usernameIndex],
                 }
-                let songs = await getSongs("match (u:User)-[:Published]-(a:Album)-[:Includes]->(s:Song) where ID(a) = " + albumId, albumId)
-                res.status(200).json({status: 200, message: "OK", data: {album: album, songs: songs}})
-                session.close()
+                session.run("match (u:User)-[:Published]-(a:Album)-[:Includes]->(s:Song) where ID(a) = " + albumId
+                            + " optional match (s)<-[r:Rated]-(:User)"
+                            + " return u.username as username, u.stageName AS artist, s AS song, avg(r.rating) as avgRating")
+                .then(async function(result){
+                    let songs = await prepareSongs(result.records)
+                    res.status(200).json({status: 200, message: "OK", data: {album: album, songs: songs}})
+                    session.close()
+                }).catch((error) => {
+                    console.error(error);
+                    res.status(500).json({status: 500, message: "Internal server error"})
+                    session.close()
+                });
             }
             
         }).catch((error) => {
@@ -710,43 +749,39 @@ app.get("/album/:albumId", (req, res) => {
 app.get("/song/:songId", async (req, res) => {
     const session = driver.session()
     let songId = req.params.songId
-    let song = await getSongs("match (u:User)-[:Published]->(s:Song) where ID(s) = " + songId)
-    if(song.length === 0){
-        session.run("match (u:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) where id(s) = " + songId 
-                    + " return id(a) as albumId")
-                    .then(async function(result){
-                        if(result.records.length === 0){
-                            res.status(404).json({status: 404, message: "Song not found."})
-                        } else {
-                            let albumId = result.records[0]._fields[0].low
-                            let song = await getSongs("match (u:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) where ID(s) = " + songId, albumId)
-                            song[0].albumdId = albumId
-                            res.status(200).json({status: 200, message: "OK", data: song[0]})
-                        }
-                        session.close()
-                    }).catch((error) => {
-                        console.error(error);
-                        res.status(500).json({status: 500, message: "Internal server error"})
-                        session.close()
-                    });
-    } else {
-        res.status(200).json({status: 200, message: "OK", data: song[0]})
-    }
+    session.run("match (s:Song) where ID(s) = " + songId
+            + " optional match (s)<-[:Published]-(u1:User)"
+            + " optional match (s)<-[:Includes]-(a:Album)<-[:Published]-(u2:User)"
+            + " optional match (s)<-[r:Rated]-(:User)"
+            + " return s as song, a, u1.username as username1, u2.username as username2, u1.stageName as artist1, u2.stageName as artist2, avg(r.rating) as avgRating, id(a) as albumId")
+    .then(async function(result){
+        if(result.records.length === 0){
+            res.status(404).json({status: 404, message: "Song not found."})
+        } else {
+            let song = await prepareSongs(result.records, true)
+            res.status(200).json({status: 200, message: "OK", data: song[0]})
+        }
+        session.close()
+    }).catch((error) => {
+        console.error(error);
+        res.status(500).json({status: 500, message: "Internal server error"})
+        session.close()
+    });
 })
 
-app.get("/recommended/:userId", async (req, res) => {
+app.get("/recommended", async (req, res) => {
     const session = driver.session()
-    let userId = req.params.userId
+    let userId = req.user_id
     session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Published]-(u:User)" 
-                //+ ", (s2)<-[r:Rated]-(:User)"
                 + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)"
-                + " return distinct s2 as song, u.stageName as artist")//, avg(r.rating) as avgRating
+                + " optional match (s2)<-[r:Rated]-(:User)"
+                + " return distinct s2 as song, u.username as username, u.stageName as artist, avg(r.rating) as avgRating")
     .then(async function(result){
         let songs = await prepareSongs(result.records)
         session.run("match (u1:User)-[r1:Rated]->(s1:Song)<-[r2:Rated]-(u2:User)-[r3:Rated]->(s2:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User)"
-                //+ " OPTIONAL MATCH (s2)<-[r:Rated]-(:User)"
                 + " where r1.rating > 3 and r2.rating > 3 and r3.rating > 3 and id(u1) = " + userId + " and NOT (u1)-[:Rated]->(s2)" 
-                + " return distinct s2 as song, u.stageName as artist, id(a) as albumId")//, avg(r.rating) as avgRating
+                + " optional match (s2)<-[r:Rated]-(:User)"
+                + " return distinct s2 as song, u.username as username, u.stageName as artist, id(a) as albumId, avg(r.rating) as avgRating")
             .then(async function(result){
                 let restOfTheSongs = await prepareSongs(result.records)
                 songs = songs.concat(restOfTheSongs)
@@ -763,7 +798,7 @@ app.get("/recommended/:userId", async (req, res) => {
                 })
                 session.run("unwind [" + albumIds.toString() + "] as el match (u:User)-[:Published]->(a:Album)-[i:Includes]->(:Song)"
                         + " where id(a) = el"
-                        + " return a as album, u.username as artist, count(i) as songCount")
+                        + " return a as album, u.stageName as artist, count(i) as songCount")
                     .then(async function(result){
                         let albums = await prepareAlbums(result.records)
                         res.status(200).json({status: 200, message: "OK", data: {songs: songs, albums: albums}})
@@ -794,7 +829,7 @@ app.post("/listen", (req, res) => {
     res.status(200).send({status: 200, message: "OK"})
 })
 
-app.get("/leaderboards/:date/:basedOn", async (req, res) => {//TODO: provera da li je datum u ispravnom formatu
+app.get("/leaderboards/:date/:basedOn", async (req, res) => {
     const session = driver.session()
     let basedOn = req.params.basedOn
     let date = req.params.date
@@ -804,53 +839,21 @@ app.get("/leaderboards/:date/:basedOn", async (req, res) => {//TODO: provera da 
         if(i % 2 == 0) songIds.push(e)
         else values[songIds[songIds.length - 1]] = e
     })
-    let idsAsString = "[" + songIds.toString() + "]" 
-    session.run("unwind " + idsAsString + " as songId match (s:Song)<-[:Published]-(u:User) where id(s) = songId "
-            + " return u.username as username, s as song")
+    let idsAsString = "[" + songIds.toString() + "]"
+    session.run("unwind " + idsAsString + " as songId match (s:Song) where id(s) = songId "
+    + " optional match (s)<-[:Published]-(u1:User) "
+    + " optional match (s)<-[:Includes]-(a:Album)<-[:Published]-(u2:User) "
+    + " optional match (s)<-[r:Rated]-(:User) "
+    + " return s as song, a, u1.username as username1, u2.username as username2, u1.stageName as artist1, u2.stageName as artist2, avg(r.rating) as avgRating, id(a) as albumId")
             .then(async function(result){
-                let songs = []
-                for(let i = 0; i < result.records.length; i++){
-                    let e = result.records[i]
-                    let songIndex = e._fieldLookup["song"]
-                    let artistIndex = e._fieldLookup["artist"]
-                    let songId = e._fields[songIndex].identity.low
-                    songs.push({
-                        ...e._fields[songIndex].properties,
-                        id: songId,
-                        labels: e._fields[songIndex].labels,
-                        artist: e._fields[artistIndex],
-                        listenings: Number(values[songId])
+                let songs = await prepareSongs(result.records)
+                if(basedOn === "listenings"){
+                    songs.forEach((e) =>{
+                        e.listenings = Number(values[e.id])
                     })
-                    songs[i].avgRating = await averageRating(songs[i].id)
-                    songs[i].songFile = await getSongFile(songs[i].id, songs[i].extension)
                 }
-                session.run("unwind " + idsAsString + " as songId match (s:Song)<-[:Includes]-(a:Album)<-[:Published]-(u:User) where id(s) = songId "
-                            + " return u.username as username, s as song, id(a) as albumId")
-                    .then(async function(result){
-                        let currLength = songs.length
-                        for(let i = 0; i < result.records.length; i++){
-                            let e = result.records[i]
-                            let songIndex = e._fieldLookup["song"]
-                            let artistIndex = e._fieldLookup["artist"]
-                            let albumId = e._fields[e._fieldLookup["albumId"]].low
-                            let songId = e._fields[songIndex].identity.low
-                            songs.push({
-                                ...e._fields[songIndex].properties,
-                                id: songId,
-                                labels: e._fields[songIndex].labels,
-                                artist: e._fields[artistIndex],
-                                listenings: Number(values[songId])
-                            })
-                            songs[i + currLength].avgRating = await averageRating(songs[i + currLength].id)
-                            songs[i + currLength].songFile = await getSongFile(songs[i + currLength].id, songs[i + currLength].extension, albumId)
-                        }
-                        res.status(200).json({status: 200, message: "OK", data: {songs: songs}})
-                        session.close()
-                    }).catch((error) => {
-                        console.error(error);
-                        res.status(500).json({status: 500, message: "Internal server error"})
-                        session.close()
-                    });
+                res.status(200).json({status: 200, message: "OK", data: songs})
+                session.close()
             }).catch((error) => {
                 console.error(error);
                 res.status(500).json({status: 500, message: "Internal server error"})
@@ -872,7 +875,7 @@ function buildCreateQuery(labels, data){
     labels.forEach((e) =>{
         query += ":" + e
     })
-    query += " {" //TODO: zasad radi samo za kreiranje cvorova koji imaju atribute tipa string i number
+    query += " {"
     data.forEach((e, i) => {
         if(e.type === "string")
             query += e.key + ":'" + e.value + "'"
@@ -883,66 +886,6 @@ function buildCreateQuery(labels, data){
     })
     query += "}) return id(n)"
     return query
-}
-
-function getSongs(query, albumId = -1){
-    return new Promise(function(resolve) {
-        const session = driver.session()
-        query += " return u.stageName AS artist, s AS song"
-        session.run(query).then(async function(result){
-            let songs = []
-            for(let i = 0; i < result.records.length; i++){
-                let e = result.records[i]
-                let songIndex = e._fieldLookup["song"]
-                let artistIndex = e._fieldLookup["artist"]
-                songs.push({
-                    ...e._fields[songIndex].properties,
-                    id: e._fields[songIndex].identity.low,
-                    labels: e._fields[songIndex].labels,
-                    artist: e._fields[artistIndex],
-                })
-                songs[i].avgRating = await averageRating(songs[i].id)
-                songs[i].songFile = await getSongFile(songs[i].id, songs[i].extension, albumId)
-            }
-            resolve(songs)
-            session.close()
-        }).catch((error) => {
-                console.error(error);
-                //res.status(500).json({status: 500, message: "Internal server error"})
-                session.close()
-        });
-      });
-}
-
-function getSongFile(id, extension, albumId = -1){
-    return new Promise(function(resolve) {
-        let path = ""
-        if(albumId != -1) path = "./albums/" + albumId + "/"
-        else path = "./singles/"
-        fs.readFile(path + id + extension, {encoding: 'base64'}, (err, songFile) =>{
-            if(!err){
-                resolve(songFile)
-            } else {
-                resolve(null)
-            }
-        })
-    });
-}
-
-function averageRating(songId){
-    return new Promise(function(resolve) {
-        const session = driver.session()
-        session.run("match (s:Song)<-[r:Rated]-(u:User) where ID(s) = " + songId + 
-                    " return avg(r.rating) as avgRating")
-        .then(function(result){
-            resolve(result.records[0]._fields[0])
-            session.close()
-        }).catch((error) => {
-            console.error(error);//TODO: ove greske kad se dese treba nekako da se obrade
-            //res.status(500).json({status: 500, message: "Internal server error"})
-            session.close()
-        });
-    });
 }
 
 function getCurrDate(format){
@@ -959,4 +902,3 @@ function getCurrDate(format){
 }
 
 app.listen(3030)
-//collapse all je crtl+k+0

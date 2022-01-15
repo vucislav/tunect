@@ -1,4 +1,3 @@
-/*Moj css*/
 h3{
     text-align: left;
     padding-left: 5%;
@@ -6,11 +5,6 @@ h3{
 
 .coverPhoto{
     position: relative;
-}
-
-.coverPhoto:hover #coverPhotoEdit,
-.profilePhoto:hover #profilePhotoEdit {
-	display: block;
 }
 
 .profilePhoto{
@@ -45,9 +39,16 @@ h3{
     display: none;
 }
 
-/*Nije moj css*/
+.audioFileInput{
+    margin-right: 10px;
+}
+
+#albumNameInput{
+    margin-right: 10px;
+}
+
 .padding {
-    padding: 3rem !important;
+    padding: 1rem 3rem !important;
 }
 
 .card-img-top {

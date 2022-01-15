@@ -90,7 +90,7 @@ class Song extends Component {
     }
 
     fetchSong(){
-        fetch("http://localhost:3030/song/" + this.state.songId, { //TODO: id ulogovanog
+        fetch("http://localhost:3030/song/" + this.state.songId, {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -123,12 +123,13 @@ class Song extends Component {
         return(
         <div className="padding">
             <div className="col-md-8 offset-md-2">
-                <h3>Song</h3>
+                <h3 className = "title" style={{paddingLeft: "0px"}}>Song</h3>
                 <Songs songs = {Object.keys(this.state.song).length === 0 ? [] : [this.state.song]}
                     ratingEnabled = {true}
-                    playlistAdding = {true} />
+                    playlistAdding = {true}
+                    playingEnabled = {true} />
                 <div className="form-group">
-                    <label>Leave a comment</label>
+                    <label className = "title">Leave a comment</label>
                     <input type="text" className="form-control" placeholder="Add a comment" value={this.state.commentText}
                             onChange={(e) => this.setState({commentText: e.target.value})}/>
                     <button className="btn btn-primary btn-block" onClick={this.postComment}>Comment</button>

@@ -40,6 +40,14 @@
   text-align: right;
 }
 
+.content{
+  margin-top: 50px;
+}
+
+.title{
+  color: white;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

@@ -1,7 +1,6 @@
 import { Component } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Songs from './Songs'
-import { prepareSongs } from "./Utility";
 
 class Album extends Component {
     constructor(props) {
@@ -35,7 +34,7 @@ class Album extends Component {
             (result) => {
                 if(result.status == 200){
                     this.setState({
-                        songs: prepareSongs(result.data.songs),
+                        songs: result.data.songs,
                         album: result.data.album
                     })
                 } else if (result.status == 401) {
@@ -52,7 +51,7 @@ class Album extends Component {
     }
 
     removeFromPlaylist(songId){
-        fetch("http://localhost:3030/playlist/" + this.state.playlistId + "/" + songId, { //TODO: ovde treba da vadis id ulogovanog usera
+        fetch("http://localhost:3030/playlist/" + this.state.playlistId + "/" + songId, {
             method: 'DELETE',
             mode: 'cors',
             headers: {

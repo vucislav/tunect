@@ -100,15 +100,15 @@ class Following extends Component {
         return(
         <div className="padding">
             <div className="col-md-8 offset-md-2">
-                <h3>Singles</h3>
+                <h3 className="title">Singles</h3>
                 <Songs songs = {this.state.singles}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
-                <h3>Songs on albums</h3>
+                <h3 className="title">Songs on albums</h3>
                 <Songs songs = {this.state.songsOnAlbums}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
-                <h3>Albums</h3>
+                <h3 className="title">Albums</h3>
                 <Albums albums = {this.state.albums} />
             </div>
         </div>

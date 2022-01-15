@@ -27,7 +27,7 @@ class Songs extends React.Component {
 
     componentDidMount(){
         if(this.props.playlistAdding){
-            fetch("http://localhost:3030/user/" + "carina" + "/playlists", { //TODO: ovde ide username ulogovanog korisnika
+            fetch("http://localhost:3030/user/" + localStorage.getItem("username") + "/playlists", {
                 method: 'GET',
                 mode: 'cors',
                 headers: {
@@ -70,8 +70,7 @@ class Songs extends React.Component {
             },
             body: JSON.stringify({
                 songId: this.state.currSongId,
-                playlistIds: checkedPlIds,
-                userId: 46 //TODO: id ulogovanog
+                playlistIds: checkedPlIds
             })
         })
         .then(res => res.json())
@@ -102,8 +101,7 @@ class Songs extends React.Component {
                 },
                 body: JSON.stringify({
                     rating: rating,
-                    songId: this.state.currSongId,
-                    userId: 16 //TODO: ovde ide ID ulogovanog
+                    songId: this.state.currSongId
                 })
             })
             .then(res => res.json())
@@ -126,7 +124,7 @@ class Songs extends React.Component {
 
     openRatingModal(event, songId){
         event.preventDefault()
-        fetch("http://localhost:3030/rating/" + 16 + "/" + songId, { //TODO: ID loginovanog 
+        fetch("http://localhost:3030/rating/" + localStorage.getItem("userId") + "/" + songId, {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -137,7 +135,6 @@ class Songs extends React.Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result.data)
                 if(result.status == 200)
                     this.setState({showRateModal: true, currSongRating: result.data, currSongId: songId})
                 else if(result.status == 400)
@@ -155,7 +152,7 @@ class Songs extends React.Component {
 
     openPlaylistsModal(event, songId){
         event.preventDefault()
-        fetch("http://localhost:3030/containSong/" + 46 + "/" + songId, { //TODO: ID loginovanog 
+        fetch("http://localhost:3030/containSong/" + localStorage.getItem("userId") + "/" + songId, {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -182,7 +179,6 @@ class Songs extends React.Component {
     }
 
     onSongPlay(e, songId){
-        console.log(songId)
         let audio = document.querySelector("#audio" + songId);
         if(audio.currentTime === 0){
             fetch("http://localhost:3030/listen", {
@@ -273,7 +269,9 @@ class Songs extends React.Component {
                                     <div className="flex"> 
                                         <a href="#" className="item-author text-color" data-abc="true"
                                             onClick={(e) => this.props.navigate('/song/' + song.id)}>{ song.title }</a>
-                                        <div className="item-except text-muted text-sm h-1x"> { song.artist }</div>
+                                        <a href="#" className="item-author text-color" data-abc="true">
+                                        <div className="item-except text-muted text-sm h-1x" 
+                                            onClick={(e) => this.props.navigate('/profile/' + song.username)}> { song.artist }</div></a>
                                     </div>
                                     <div className="no-wrap">
                                         <div className="item-date text-muted text-sm d-none d-md-block">{ duration }</div>
@@ -297,9 +295,18 @@ class Songs extends React.Component {
                                         <button className="btn btn-danger btn-block" onClick = { (event) => this.props.removeFromPlaylist(song.id) }>Remove</button>
                                         : null
                                     }
-                                    <audio id={"audio" + song.id} controls={true}
+                                    {
+                                        this.props.playingEnabled ? 
+                                        <audio id={"audio" + song.id} controls={true}
                                         type={"audio/" + song.extension.substring(1, song.extension.length)}
                                         src={song.audioUrl} onPlay={(e) => this.onSongPlay(e, song.id)}></audio>
+                                        : null
+                                    }
+
+                                    {
+                                        this.props.showListenings ? 
+                                        <p>{song.listenings + " listenings"}</p>: null
+                                    }
                                 </div>
                             )
                         }

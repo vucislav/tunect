@@ -11,15 +11,15 @@ class Recommended extends Component {
             songs: [],
             albums: []
         };
-        this.fetchSongs = this.fetchSongs.bind(this)
+        this.fetchRecommended = this.fetchRecommended.bind(this)
     }
 
     componentDidMount(){
-        this.fetchSongs()
+        this.fetchRecommended()
     }
 
-    fetchSongs(){
-        fetch("http://localhost:3030/recommended/" + localStorage.getItem("userId"), { //TODO: id ulogovanog
+    fetchRecommended(){
+        fetch("http://localhost:3030/recommended", {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -30,10 +30,8 @@ class Recommended extends Component {
         .then(res => res.json())
         .then(
             (result) => {
-                console.log(result.data.songs)
                 if(result.status == 200){
                     this.setState({
-                        //songs: prepareSongs(result.data.songs), //TODO: da l ce moci odavde da se pustaju pesme 
                         songs: result.data.songs,
                         albums: result.data.albums
                     })
@@ -54,11 +52,11 @@ class Recommended extends Component {
         return(
         <div className="padding">
             <div className="col-md-8 offset-md-2">
-                <h3>Recommended songs</h3>
+                <h3 className="title">Recommended songs</h3>
                 <Songs songs = {this.state.songs}
                     ratingEnabled = {true}
                     playlistAdding = {true} />
-                <h3>Albums</h3>
+                <h3 className="title">Albums</h3>
                 <Albums albums = {this.state.albums} />
             </div>
         </div>

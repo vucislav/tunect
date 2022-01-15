@@ -1,4 +1,5 @@
 import { Component } from "react";
+import './Playlists.css'
 import { useNavigate, useLocation } from "react-router-dom";
 import axios from 'axios'
 
@@ -20,7 +21,7 @@ class Playlists extends Component {
     }
 
     fetchMyPlaylists(){
-        fetch("http://localhost:3030/user/" + "carina" + "/playlists", { //TODO: ovde treba da vadis id ulogovanog usera
+        fetch("http://localhost:3030/user/" + localStorage.getItem("username") + "/playlists", {
             method: 'GET',
             mode: 'cors',
             headers: {
@@ -49,7 +50,7 @@ class Playlists extends Component {
     }
 
     createPlaylist(){
-        fetch("http://localhost:3030/createPlaylist", { //TODO: ovde treba da vadis id ulogovanog usera
+        fetch("http://localhost:3030/createPlaylist", {
             method: 'POST',
             mode: 'cors',
             headers: {
@@ -57,7 +58,7 @@ class Playlists extends Component {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                username: "carina", //TODO: ovde treba da vadis username ulogovanog usera
+                username: localStorage.getItem("username"), 
                 name: this.state.newPlaylistName
             })
         })
@@ -120,19 +121,26 @@ class Playlists extends Component {
                                         onChange={(e) => this.setState({newPlaylistName: e.target.value})}/>
                             </div>
                             <button id="createPlaylistBtn" className="btn btn-primary btn-block" onClick={this.createPlaylist}>Create</button>
-                            {this.state.myPlaylists.map((e, i) => { 
-                                return (
-                                    <div className="list-item" key={i}>
-                                        <div><a href="#" data-abc="true"><span className="w-48 avatar gd-warning">P</span></a></div>
-                                        <div className="flex"> 
-                                            <a href="#" className="item-author text-color" 
-                                                onClick={(event) => this.props.navigate('/playlist/' + e.id)} data-abc="true">{ e.name }</a>
-                                            <div className="item-except text-muted text-sm h-1x"> ovde treba da ide broj pesama </div>
-                                        </div>
-                                        <button className="btn btn-danger btn-block" onClick = { (event) => this.removePlaylist(e.id) }>Remove</button>
-                                    </div>)
-                                }
-                            )}
+                            <div className="row">
+                                <div className="col-md-12">
+                                    <div className="list list-row block">
+                                        {this.state.myPlaylists.map((e, i) => 
+                                            <div className="list-item col playListItem" key={i}>
+                                                <div className="col-md-1"><a href="#" data-abc="true"><span className="w-48 avatar gd-warning">P</span></a></div>
+                                                <div className="flex col-md-3"> 
+                                                    <a href="#" onClick={(event) => this.props.navigate('/playlist/' + e.id)} 
+                                                    className="item-author text-color" data-abc="true">{ e.name }</a>
+                                                    <div className="item-except text-muted text-sm h-1x"> 
+                                                        {e.songCount === undefined ? "0 songs" : e.songCount + " songs"} 
+                                                    </div>
+                                                </div>
+                                                <button className="deletePlaylistBtn btn btn-danger btn-block col-md-4" 
+                                                onClick = { (event) => this.removePlaylist(e.id) }>Delete</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

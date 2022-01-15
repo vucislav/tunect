@@ -1,6 +1,5 @@
 import { Component } from "react";
 import Songs from './Songs'
-import { prepareSongs } from "./Utility";
 import './Leaderboard.css'
 
 export default class Leaderboard extends Component {
@@ -12,12 +11,10 @@ export default class Leaderboard extends Component {
             day: "",
             month: "",
             year: "",
-            socket: null
+            socket: null,
+            basedOn: "rating"
         };
         this.fetchSongs = this.fetchSongs.bind(this)
-    }
-
-    componentDidMount(){
     }
 
     fetchSongs(){
@@ -44,7 +41,8 @@ export default class Leaderboard extends Component {
             (result) => {
                 if(result.status == 200){
                     this.setState({
-                        songs: prepareSongs(result.data.songs)
+                        songs: result.data,
+                        basedOn: basedOn
                     })
                 } else if (result.status == 401) {
                     localStorage.removeItem('token')
@@ -74,16 +72,17 @@ export default class Leaderboard extends Component {
                                 onChange={(e) => this.setState({year: e.target.value})}/>
 
                     <input className = "basedOnCb" defaultChecked type="radio" name="basedOn" value="rating"/>
-                    <label>Rating</label>
+                    <label className = "basedOnLbl">Rating</label>
 
                     <input className = "basedOnCb" type="radio" name="basedOn" value="listenings"/>
-                    <label>Listenings</label>
+                    <label className = "basedOnLbl">Listenings</label>
 
-                    <button className="btn btn-danger btn-block" onClick = { (event) => this.fetchSongs() }>Submit</button>
+                    <button className="btn btn-warning btn-block" onClick = { (event) => this.fetchSongs() }>Submit</button>
                 </div>
                 <Songs songs = {this.state.songs}
                     ratingEnabled = {true}
                     playlistAdding = {true}
+                    showListenings = {this.state.basedOn === "listenings"}
                     numbered = {true} />
             </div>
         </div>

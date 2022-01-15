@@ -74,7 +74,7 @@ class App extends React.Component {
       <div className="App">
         <nav className="navbar navbar-expand-lg navbar-light fixed-top">
           <div className="container">
-            <Link className="navbar-brand" to={"/login"}>eVeL</Link>
+            <Link className="navbar-brand" to={"/login"}>Tunect</Link>
             <div className="collapse navbar-collapse" id="navbarTogglerDemo02">
                 {
                 localStorage.getItem('token') ? 
@@ -98,9 +98,6 @@ class App extends React.Component {
                   <li className="nav-item">
                     <Link className="nav-link" to={"/leaderboard"}>Leaderboard</Link>
                   </li>
-                  <li className="nav-item">
-                    <Link className="nav-link" to={"/notifications"}>Notifications</Link>
-                  </li> 
                   <li className="nav-item">
                     <a href="" className="nav-link" onClick={
                       (e) => {
@@ -144,6 +141,7 @@ class App extends React.Component {
         }
         )}
         
+        <div className = "content">
         <Routes>
           <Route exact path='/' element={
             <div className="auth-wrapper">
@@ -176,6 +174,8 @@ class App extends React.Component {
           <Route path="/following" element={<Following />} />
           <Route path="/recommended" element={<Recommended />} />
         </Routes>
+        </div>
+        
       </div>
     );
   }

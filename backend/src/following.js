@@ -5,8 +5,9 @@ module.exports = function(app, neoDriver, redisClient){
     app.get("/following/songsOnAlbums", async (req, res) => {
         const session = neoDriver.session()
         let userId = req.user_id
-        session.run("match (u1:User)-[:Follows]->(u2:User)-[:Published]->(s:Song) OPTIONAL MATCH (s)<-[r:Rated]-(u:User) "
+        session.run("match (u1:User)-[:Follows]->(u2:User)-[:Published]->(s:Song) " 
         + " where id(u1) = " + userId 
+        + " OPTIONAL MATCH (s)<-[r:Rated]-(u:User) "
         + " return s as song, u2.stageName as artist, u2.username as username, avg(r.rating) as avgRating order by s.timestamp limit 5")
         .then(async function(result){
             let songs = await prepareSongs(result.records)
@@ -22,8 +23,9 @@ module.exports = function(app, neoDriver, redisClient){
     app.get("/following/singles", async (req, res) => {
         const session = neoDriver.session()
         let userId = req.user_id
-        session.run("match (u1:User)-[:Follows]->(u2:User)-[:Published]->(a:Album)-[:Includes]->(s:Song) OPTIONAL MATCH (s)<-[r:Rated]-(u:User) "
+        session.run("match (u1:User)-[:Follows]->(u2:User)-[:Published]->(a:Album)-[:Includes]->(s:Song)" 
         + " where id(u1) = " + userId 
+        + " OPTIONAL MATCH (s)<-[r:Rated]-(u:User) "
         + " return s as song, u2.stageName as artist, u2.username as username, avg(r.rating) as avgRating order by s.timestamp limit 5")
         .then(async function(result){
             let songs = await prepareSongs(result.records)
